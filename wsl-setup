@@ -28,7 +28,7 @@ function mount_snaps() {
         )
 
         # Mount only once
-        if ! grep -qs " ${targetdir} "; then
+        if ! grep -qs " ${targetdir} " /proc/mounts; then
             mount -o loop "${snap}" "${targetdir}"
         fi
     done
@@ -83,7 +83,7 @@ export XDG_RUNTIME_DIR="/run/user/${SUDO_UID}"
 export SNAP_CORE_DIR="/snap/core20/current"
 
 # Mount theme snap inside our snap
-if ! grep -qs " $SNAP/data-dir "; then
+if ! grep -qs " $SNAP/data-dir " /proc/mounts; then
     mount -o bind /snap/gtk-common-themes/current/share $SNAP/data-dir
 fi
 
