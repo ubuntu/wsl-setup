@@ -1,0 +1,18 @@
+Source: wsl-setup
+Section: admin
+Priority: optional
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Build-Depends: debhelper-compat (= 13),
+Standards-Version: 4.6.0
+Homepage: https://github.com/ubuntu/wsl-setup
+Description: WSL setup snap launcher
+ This package helps setting up a mock snap environment on WSL to start
+ the ubuntu-desktop-installer in system_setup mode.
+ It will be deprecated once snap is supported on WSL.
+
+Package: wsl-setup
+Architecture: all
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+Description: ${source:Synopsis}
+ ${source:Extended-Description}
