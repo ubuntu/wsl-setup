@@ -1,4 +1,11 @@
-wsl-setup (0.1) UNRELEASED; urgency=medium
+wsl-setup (0.1.1) jammy; urgency=medium
+
+  * Fix libexec path
+  * Fix snap mount detection
+
+ -- Didier Roche <didrocks@ubuntu.com>  Thu, 28 Oct 2021 09:41:33 +0200
+
+wsl-setup (0.1) jammy; urgency=medium
 
   * Initial Release
 
