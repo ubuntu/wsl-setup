@@ -83,7 +83,7 @@ export XDG_RUNTIME_DIR="/run/user/${SUDO_UID}"
 export SNAP_CORE_DIR="/snap/core20/current"
 
 # Mount theme snap inside our snap
-if ! grep -qs " $SNAP/data-dir " /proc/mounts; then
+if ! grep -qs " $(readlink -f $SNAP)/data-dir " /proc/mounts; then
     mount -o bind /snap/gtk-common-themes/current/share $SNAP/data-dir
 fi
 
