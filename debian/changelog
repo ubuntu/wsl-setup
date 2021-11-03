@@ -1,3 +1,12 @@
+wsl-setup (0.1.2) jammy; urgency=medium
+
+  [ Jean-Baptiste Lallement ]
+  [ Didier Roche-Tolomelli ]
+  * Prevent mounting multiple times the content theme snap
+  * Do not rely on local variable for wsl snap reference
+
+ -- Didier Roche <didrocks@ubuntu.com>  Wed, 03 Nov 2021 14:59:02 +0100
+
 wsl-setup (0.1.1) jammy; urgency=medium
 
   * Fix libexec path
