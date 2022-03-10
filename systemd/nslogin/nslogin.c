@@ -30,6 +30,7 @@
 #include <pwd.h>
 #include <sched.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -158,7 +159,7 @@ static bool is_systemd_starting(sd_bus *bus) {
 }
 
 /// Returns a pid from a path of the form /proc/[PID]/anything (3 level deep)
-static pid_t pid_from_path(const char *path, int basenameOffset) {
+static pid_t pid_from_path(const char *path, long basenameOffset) {
     char pidString[10];
     char *pidStarts = strchr(path + 1, '/');
     if (pidStarts == NULL) {
@@ -182,7 +183,8 @@ static int symlink_basename_cmp(const char *symlink, const char *name, int lengt
     char target[PATH_MAX];
     ssize_t len = readlink(symlink, target, PATH_MAX);
     if (len == -1) {
-        perror(symlink);
+        // This condition becomes really common if attempting to find the PID by trial-and-error.
+        // Thus, printing this error condition would become just noise.
         return -5;
     }
     target[len] = '\0';
@@ -196,8 +198,7 @@ static int symlink_basename_cmp(const char *symlink, const char *name, int lengt
     return strncmp(targetBasename, name, length);
 }
 
-/// Returns the systemd PID if found, or zero otherwise.
-static int check_entry_for_systemd(const char *path, const struct stat *info, const int typeflag, struct FTW *pathinfo) {
+pid_t find_systemd(void) {
     struct procInfo {
         const char *basename;
         int basenameSize;
@@ -205,22 +206,17 @@ static int check_entry_for_systemd(const char *path, const struct stat *info, co
     };
 
     struct procInfo systemd = {"systemd", 7, 0};
-    // struct procInfo systemd = {"nvim", 4, 1000};
-
-    if (typeflag == FTW_SL && pathinfo->level == 2 && strncmp(&path[pathinfo->base], "exe", 3) == 0 &&
-        info->st_uid == systemd.owner && info->st_gid == systemd.owner) {
-        if (symlink_basename_cmp(path, systemd.basename, systemd.basenameSize) != 0) {
-            return 0;
+    char exeLinkPath[80] = {'\0'};
+    for (int32_t pidCanditate = 10; pidCanditate < INT32_MAX; pidCanditate++) {
+        snprintf(exeLinkPath, 80, "/proc/%d/exe", pidCanditate);
+        int res = symlink_basename_cmp(exeLinkPath, systemd.basename, systemd.basenameSize);
+        if (res != 0) {
+            continue;
         }
-
-        return pid_from_path(path, pathinfo->base);
+        long offset = strrchr(exeLinkPath, '/') + 1 - exeLinkPath;
+        return pid_from_path(exeLinkPath, offset);
     }
     return 0;
-}
-
-pid_t find_systemd(void) {
-    int result = nftw("/proc", check_entry_for_systemd, 10, FTW_PHYS);
-    return (pid_t)result;
 }
 
 bool wait_on_systemd(void) {
