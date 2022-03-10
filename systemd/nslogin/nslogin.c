@@ -29,19 +29,20 @@
 #include <linux/limits.h>
 #include <pwd.h>
 #include <sched.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <systemd/sd-bus.h>
 #include <unistd.h>
 
 /// Returns systemd real PID.
 pid_t find_systemd(void);
 
-/// Returns 0 when the process PID is ready.
-// TODO
-int wait_on_pid(int PID) { return 0; }
+/// Returns true when the process PID is ready.
+bool wait_on_systemd(void);
 
 /// Enters in the mount and pid namespaces of the process PID, while preserving PWD.
 /// Returns 0 on success.
@@ -69,8 +70,7 @@ int main(int argc, char *argv[]) {
         perror("Could not find systemd PID");
         exit(1);
     }
-    int systemdStatus;
-    while ((systemdStatus = wait_on_pid(systemdPid))) {
+    while (!wait_on_systemd()) {
     }
 
     // Gain root privilege
@@ -98,6 +98,9 @@ int main(int argc, char *argv[]) {
         perror("setegid back as user");
         exit(6);
     }
+    // Make sure any pending output is flushed before forking.
+    fflush(stdout);
+    fflush(stderr);
 
     // Without forking after setting PID namespace, we get setpgid errors when piping commands.
     //  child setpgid (PID_X to PID_Y): Operation not permitted
@@ -122,10 +125,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Make sure any pending output is flushed before replacing this binary image.
-    fflush(stdout);
-    fflush(stderr);
-
     // Finally exec.
     if (execvp(pathname, argvs) == -1) {
         const size_t size = 128;
@@ -135,6 +134,49 @@ int main(int argc, char *argv[]) {
         exit(7);
     }
 } // main.
+
+/// Returns true if systemd is still starting.
+static bool is_systemd_starting(sd_bus *bus) {
+    char *msg = NULL;
+    // sd_bus_error_free is safe to call even if there is no error data.
+    sd_bus_error err __attribute__((__cleanup__(sd_bus_error_free))) = SD_BUS_ERROR_NULL;
+    int busOk = sd_bus_get_property_string(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+                                           "org.freedesktop.systemd1.Manager", "SystemState", &err, &msg);
+    if (busOk < 0) {
+        fprintf(stderr, "Bus error %s", err.message);
+        return false;
+    }
+
+    if (msg == NULL) {
+        return false;
+    }
+    // We won't get the message "Failed to connect to bus: No such file or directory" at this point because there is a
+    // bus available at this point.
+    bool starting = (strncmp(msg, "initializing", 12) == 0 || strncmp(msg, "starting", 8) == 0);
+    free(msg);
+    return starting;
+}
+
+bool wait_on_systemd(void) {
+    sd_bus *bus;
+    bool systemdStarting = true;
+    int waitCounts = 0;
+    int busOk = -1;
+    const int timeoutUs = 500000;
+    const int loopMax = 19;
+    for (busOk = sd_bus_default_system(&bus); busOk < 0 && waitCounts < loopMax; waitCounts++) {
+        usleep(timeoutUs); // 500 ms.
+        busOk = sd_bus_default_system(&bus);
+    }
+    // If a timeout had occurred before and bus was still unavailable, the following loop will not even run.
+    for (; busOk >= 0 && waitCounts <= loopMax && (systemdStarting = is_systemd_starting(bus)); waitCounts++) {
+        usleep(timeoutUs); // 500 ms.
+    }
+    fflush(stdout);
+    fflush(stderr);
+    sd_bus_unref(bus);
+    return !systemdStarting;
+}
 
 /// Returns a pid from a path of the form /proc/[PID]/anything (3 level deep)
 static pid_t pid_from_path(const char *path, int basenameOffset) {
@@ -238,7 +280,7 @@ void continue_as_child(void) {
 int enter_target_ns(pid_t PID) {
     char currentDir[PATH_MAX];
     getcwd(currentDir, PATH_MAX);
-    // Enter mnt namespace at last otherwise it may affect opening the other file descriptors.
+
     struct {
         int nstype;
         const char *nsname;
