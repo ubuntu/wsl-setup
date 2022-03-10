@@ -157,27 +157,6 @@ static bool is_systemd_starting(sd_bus *bus) {
     return starting;
 }
 
-bool wait_on_systemd(void) {
-    sd_bus *bus;
-    bool systemdStarting = true;
-    int waitCounts = 0;
-    int busOk = -1;
-    const int timeoutUs = 500000;
-    const int loopMax = 19;
-    for (busOk = sd_bus_default_system(&bus); busOk < 0 && waitCounts < loopMax; waitCounts++) {
-        usleep(timeoutUs); // 500 ms.
-        busOk = sd_bus_default_system(&bus);
-    }
-    // If a timeout had occurred before and bus was still unavailable, the following loop will not even run.
-    for (; busOk >= 0 && waitCounts <= loopMax && (systemdStarting = is_systemd_starting(bus)); waitCounts++) {
-        usleep(timeoutUs); // 500 ms.
-    }
-    fflush(stdout);
-    fflush(stderr);
-    sd_bus_unref(bus);
-    return !systemdStarting;
-}
-
 /// Returns a pid from a path of the form /proc/[PID]/anything (3 level deep)
 static pid_t pid_from_path(const char *path, int basenameOffset) {
     char pidString[10];
@@ -242,6 +221,27 @@ int check_entry_for_systemd(const char *path, const struct stat *info, const int
 pid_t find_systemd(void) {
     int result = nftw("/proc", check_entry_for_systemd, 10, FTW_PHYS);
     return (pid_t)result;
+}
+
+bool wait_on_systemd(void) {
+    sd_bus *bus;
+    bool systemdStarting = true;
+    int waitCounts = 0;
+    int busOk = -1;
+    const int timeoutUs = 500000;
+    const int loopMax = 19;
+    for (busOk = sd_bus_default_system(&bus); busOk < 0 && waitCounts < loopMax; waitCounts++) {
+        usleep(timeoutUs); // 500 ms.
+        busOk = sd_bus_default_system(&bus);
+    }
+    // If a timeout had occurred before and bus was still unavailable, the following loop will not even run.
+    for (; busOk >= 0 && waitCounts <= loopMax && (systemdStarting = is_systemd_starting(bus)); waitCounts++) {
+        usleep(timeoutUs); // 500 ms.
+    }
+    fflush(stdout);
+    fflush(stderr);
+    sd_bus_unref(bus);
+    return !systemdStarting;
 }
 
 void continue_as_child(void) {
