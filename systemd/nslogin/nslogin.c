@@ -181,7 +181,7 @@ static pid_t pid_from_path(const char *path, int basenameOffset) {
 static int symlink_basename_cmp(const char *symlink, const char *name, int length) {
     char target[PATH_MAX];
     ssize_t len = readlink(symlink, target, PATH_MAX);
-    if (len == -1){
+    if (len == -1) {
         perror(symlink);
         return -5;
     }
