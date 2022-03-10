@@ -165,7 +165,7 @@ static pid_t pid_from_path(const char *path, int basenameOffset) {
         perror("Cannot determine where pid starts in path");
         return 0;
     }
-    int pidLenght = path + basenameOffset - pidStarts - 2;
+    ssize_t pidLenght = path + basenameOffset - pidStarts - 2;
     strncpy(pidString, pidStarts + 1, pidLenght);
     pidString[pidLenght] = '\0';
     int pid = atoi(pidString);
@@ -180,8 +180,8 @@ static pid_t pid_from_path(const char *path, int basenameOffset) {
 /// Returns 0 if the basename of the symlink target matches the expected name up to length.
 int symlink_basename_cmp(const char *symlink, const char *name, int length) {
     char target[PATH_MAX];
-    int len = readlink(symlink, target, PATH_MAX);
-    if (len == (ssize_t)-1) {
+    ssize_t len = readlink(symlink, target, PATH_MAX);
+    if (len == -1){
         perror(symlink);
         return -5;
     }
@@ -200,7 +200,7 @@ int symlink_basename_cmp(const char *symlink, const char *name, int length) {
 int check_entry_for_systemd(const char *path, const struct stat *info, const int typeflag, struct FTW *pathinfo) {
     struct procInfo {
         const char *basename;
-        size_t basenameSize;
+        int basenameSize;
         uid_t owner;
     };
 
