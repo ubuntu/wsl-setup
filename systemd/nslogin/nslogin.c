@@ -201,3 +201,75 @@ pid_t find_systemd(void) {
     int result = nftw("/proc", check_entry_for_systemd, 10, FTW_PHYS);
     return (pid_t)result;
 }
+
+void continue_as_child(void) {
+    pid_t child = fork();
+    int status;
+    pid_t ret;
+
+    if (child < 0)
+        perror("fork failed");
+
+    /* Only the child returns */
+    if (child == 0)
+        return;
+
+    for (;;) {
+        ret = waitpid(child, &status, WUNTRACED);
+        if ((ret == child) && (WIFSTOPPED(status))) {
+            /* The child suspended so suspend us as well */
+            kill(getpid(), SIGSTOP);
+            kill(child, SIGCONT);
+        } else {
+            break;
+        }
+    }
+    /* Return the child's exit code if possible */
+    if (WIFEXITED(status)) {
+        exit(WEXITSTATUS(status));
+    } else if (WIFSIGNALED(status)) {
+        kill(getpid(), WTERMSIG(status));
+    }
+    exit(EXIT_FAILURE);
+}
+
+#define MAX_NS_PATH 25
+#define TARGET_NS_COUNT 2
+int enter_target_ns(pid_t PID) {
+    char currentDir[PATH_MAX];
+    getcwd(currentDir, PATH_MAX);
+    // Enter mnt namespace at last otherwise it may affect opening the other file descriptors.
+    struct {
+        int nstype;
+        const char *nsname;
+        int nsfd;
+    } ns[TARGET_NS_COUNT] = {{CLONE_NEWPID, "pid", 0}, {CLONE_NEWNS, "mnt", 0}};
+
+    // open all file descriptors first to avoid problems to find them after setting namespaces.
+    char nsPath[MAX_NS_PATH];
+    for (int i = 0; i < TARGET_NS_COUNT; i++) {
+        memset(nsPath, 0, MAX_NS_PATH);
+        if (snprintf(nsPath, MAX_NS_PATH, "/proc/%d/ns/%s", PID, ns[i].nsname) <= 0) {
+            perror("Faild to format namespace path");
+            return -1;
+        }
+        int fd = open(nsPath, O_RDONLY);
+        if (fd <= 0) {
+            fprintf(stderr, "\tpath was %s\n", nsPath);
+            perror("Failed to open namespace file descriptor");
+            return -2;
+        }
+        ns[i].nsfd = fd;
+    }
+
+    for (int i = 0; i < TARGET_NS_COUNT; i++) {
+        if (setns(ns[i].nsfd, ns[i].nstype) != 0) {
+            perror("Failed to set namespace");
+            return -3;
+        }
+        close(ns[i].nsfd);
+    }
+
+    chdir(currentDir);
+    return 0;
+}
