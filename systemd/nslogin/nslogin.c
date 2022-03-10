@@ -178,7 +178,7 @@ static pid_t pid_from_path(const char *path, int basenameOffset) {
 }
 
 /// Returns 0 if the basename of the symlink target matches the expected name up to length.
-int symlink_basename_cmp(const char *symlink, const char *name, int length) {
+static int symlink_basename_cmp(const char *symlink, const char *name, int length) {
     char target[PATH_MAX];
     ssize_t len = readlink(symlink, target, PATH_MAX);
     if (len == -1){
@@ -197,7 +197,7 @@ int symlink_basename_cmp(const char *symlink, const char *name, int length) {
 }
 
 /// Returns the systemd PID if found, or zero otherwise.
-int check_entry_for_systemd(const char *path, const struct stat *info, const int typeflag, struct FTW *pathinfo) {
+static int check_entry_for_systemd(const char *path, const struct stat *info, const int typeflag, struct FTW *pathinfo) {
     struct procInfo {
         const char *basename;
         int basenameSize;
