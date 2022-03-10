@@ -135,3 +135,69 @@ int main(int argc, char *argv[]) {
         exit(7);
     }
 } // main.
+
+/// Returns a pid from a path of the form /proc/[PID]/anything (3 level deep)
+static pid_t pid_from_path(const char *path, int basenameOffset) {
+    char pidString[10];
+    char *pidStarts = strchr(path + 1, '/');
+    if (pidStarts == NULL) {
+        perror("Cannot determine where pid starts in path");
+        return 0;
+    }
+    int pidLenght = path + basenameOffset - pidStarts - 2;
+    strncpy(pidString, pidStarts + 1, pidLenght);
+    pidString[pidLenght] = '\0';
+    int pid = atoi(pidString);
+    if (pid == 0) {
+        perror("Failed to determine PID from path");
+        fprintf(stderr, "Failed pid string was %s", pidString);
+        return 0;
+    }
+    return (pid_t)pid;
+}
+
+/// Returns 0 if the basename of the symlink target matches the expected name up to length.
+int symlink_basename_cmp(const char *symlink, const char *name, int length) {
+    char target[PATH_MAX];
+    int len = readlink(symlink, target, PATH_MAX);
+    if (len == (ssize_t)-1) {
+        perror(symlink);
+        return -5;
+    }
+    target[len] = '\0';
+    char *targetBasename = strrchr(target, '/');
+    if (targetBasename == NULL) {
+        perror("Target base name error");
+        return -5;
+    }
+    targetBasename += 1;
+    printf("%s --> %s\n", symlink, target);
+    return strncmp(targetBasename, name, length);
+}
+
+/// Returns the systemd PID if found, or zero otherwise.
+int check_entry_for_systemd(const char *path, const struct stat *info, const int typeflag, struct FTW *pathinfo) {
+    struct procInfo {
+        const char *basename;
+        size_t basenameSize;
+        uid_t owner;
+    };
+
+    struct procInfo systemd = {"systemd", 7, 0};
+    // struct procInfo systemd = {"nvim", 4, 1000};
+
+    if (typeflag == FTW_SL && pathinfo->level == 2 && strncmp(&path[pathinfo->base], "exe", 3) == 0 &&
+        info->st_uid == systemd.owner && info->st_gid == systemd.owner) {
+        if (symlink_basename_cmp(path, systemd.basename, systemd.basenameSize) != 0) {
+            return 0;
+        }
+
+        return pid_from_path(path, pathinfo->base);
+    }
+    return 0;
+}
+
+pid_t find_systemd(void) {
+    int result = nftw("/proc", check_entry_for_systemd, 10, FTW_PHYS);
+    return (pid_t)result;
+}
