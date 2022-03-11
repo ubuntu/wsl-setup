@@ -265,7 +265,11 @@ void continue_as_child(void) {
 #define TARGET_NS_COUNT 2
 int enter_target_ns(pid_t PID) {
     char currentDir[PATH_MAX];
-    getcwd(currentDir, PATH_MAX);
+    bool preserveDir = true;
+    // If getcwd fails, we give up on keeping PWD.
+    if (getcwd(currentDir, PATH_MAX) == NULL) {
+        preserveDir = false;
+    }
 
     struct {
         int nstype;
@@ -299,6 +303,10 @@ int enter_target_ns(pid_t PID) {
         close(ns[i].nsfd);
     }
 
-    chdir(currentDir);
+    if (preserveDir) {
+        if(chdir(currentDir)!=0){
+            perror("Attempt to keep working directory");
+        }
+    }
     return 0;
 }
