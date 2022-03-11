@@ -163,8 +163,9 @@ static pid_t pid_from_path(const char *path, long basenameOffset) {
     pidString[pidLenght] = '\0';
     int pid = atoi(pidString);
     if (pid == 0) {
-        perror("Failed to determine PID from path");
-        fprintf(stderr, "Failed pid string was %s", pidString);
+        char msg[80];
+        snprintf(msg, 80, "Failed to determine PID from path %s", pidString);
+        perror(msg);
         return 0;
     }
     return (pid_t)pid;
@@ -186,7 +187,6 @@ static int symlink_basename_cmp(const char *symlink, const char *name, int lengt
         return -5;
     }
     targetBasename += 1;
-    printf("%s --> %s\n", symlink, target);
     return strncmp(targetBasename, name, length);
 }
 
@@ -300,8 +300,9 @@ int enter_target_ns(pid_t PID) {
         }
         int fd = open(nsPath, O_RDONLY);
         if (fd <= 0) {
-            fprintf(stderr, "\tpath was %s\n", nsPath);
-            perror("Failed to open namespace file descriptor");
+            char msg[80];
+            snprintf(msg, 80, "Failed to open namespace file descriptor from path %s", nsPath);
+            perror(msg);
             return -2;
         }
         ns[i].nsfd = fd;
