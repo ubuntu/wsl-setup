@@ -17,10 +17,7 @@
 
 #define _GNU_SOURCE
 
-#include <ctype.h>
-#include <dirent.h>
 #include <fcntl.h>
-#include <ftw.h>
 #include <linux/limits.h>
 #include <pwd.h>
 #include <sched.h>
@@ -29,7 +26,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <systemd/sd-bus.h>
 #include <unistd.h>
