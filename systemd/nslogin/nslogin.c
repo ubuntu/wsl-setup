@@ -133,8 +133,8 @@ int main(int argc, char *argv[]) {
     }
 } // main.
 
-/// Returns true if systemd is still starting.
-static bool is_systemd_starting(sd_bus *bus) {
+/// Returns true if systemd completed its startup.
+static bool is_systemd_startup_complete(sd_bus *bus) {
     char *msg = NULL;
     // sd_bus_error_free is safe to call even if there is no error data.
     sd_bus_error err __attribute__((__cleanup__(sd_bus_error_free))) = SD_BUS_ERROR_NULL;
@@ -211,7 +211,7 @@ pid_t find_systemd(void) {
 
 bool wait_on_systemd(void) {
     sd_bus *bus;
-    bool systemdStarting = true;
+    bool systemdStarted = true;
     int waitCounts = 0;
     int busOk = -1;
     const int timeoutUs = 500000;
@@ -221,13 +221,13 @@ bool wait_on_systemd(void) {
         busOk = sd_bus_default_system(&bus);
     }
     // If a timeout had occurred before and bus was still unavailable, the following loop will not even run.
-    for (; busOk >= 0 && waitCounts <= loopMax && (systemdStarting = is_systemd_starting(bus)); waitCounts++) {
+    for (; busOk >= 0 && waitCounts <= loopMax && !(systemdStarted = is_systemd_startup_complete(bus)); waitCounts++) {
         usleep(timeoutUs); // 500 ms.
     }
     fflush(stdout);
     fflush(stderr);
     sd_bus_unref(bus);
-    return !systemdStarting;
+    return systemdStarted;
 }
 
 void continue_as_child(void) {
