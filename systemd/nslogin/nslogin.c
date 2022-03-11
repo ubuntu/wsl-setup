@@ -18,6 +18,7 @@
 #define _GNU_SOURCE
 
 #include <fcntl.h>
+#include <inttypes.h>
 #include <linux/limits.h>
 #include <pwd.h>
 #include <sched.h>
@@ -150,27 +151,6 @@ static bool is_systemd_starting(sd_bus *bus) {
     return starting;
 }
 
-/// Returns a pid from a path of the form /proc/[PID]/anything (3 level deep)
-static pid_t pid_from_path(const char *path, long basenameOffset) {
-    char pidString[10];
-    char *pidStarts = strchr(path + 1, '/');
-    if (pidStarts == NULL) {
-        perror("Cannot determine where pid starts in path");
-        return 0;
-    }
-    ssize_t pidLenght = path + basenameOffset - pidStarts - 2;
-    strncpy(pidString, pidStarts + 1, pidLenght);
-    pidString[pidLenght] = '\0';
-    int pid = atoi(pidString);
-    if (pid == 0) {
-        char msg[80];
-        snprintf(msg, 80, "Failed to determine PID from path %s", pidString);
-        perror(msg);
-        return 0;
-    }
-    return (pid_t)pid;
-}
-
 /// Returns 0 if the basename of the symlink target matches the expected name up to length.
 static int symlink_basename_cmp(const char *symlink, const char *name, int length) {
     char target[PATH_MAX];
@@ -211,8 +191,8 @@ pid_t find_systemd(void) {
 
     struct procInfo systemd = {"systemd", 7, 0};
     char exeLinkPath[80] = {'\0'};
-    for (int32_t pidCandidate = 10; pidCandidate < INT32_MAX; pidCandidate++) {
-        snprintf(exeLinkPath, 80, "/proc/%d/exe", pidCandidate);
+    for (int16_t pidCandidate = 2; pidCandidate < INT16_MAX; pidCandidate++) {
+        snprintf(exeLinkPath, 80, "/proc/%" SCNd16 "/exe", pidCandidate);
         int res = symlink_basename_cmp(exeLinkPath, systemd.basename, systemd.basenameSize);
         if (res != 0) {
             continue;
@@ -220,8 +200,7 @@ pid_t find_systemd(void) {
         if (!match_owner(exeLinkPath, systemd.owner, systemd.owner)) {
             continue;
         }
-        long offset = strrchr(exeLinkPath, '/') + 1 - exeLinkPath;
-        return pid_from_path(exeLinkPath, offset);
+        return (pid_t)pidCandidate;
     }
     return 0;
 }
