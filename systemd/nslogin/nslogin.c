@@ -45,6 +45,8 @@ int enter_target_ns(int PID);
 /// Stops this process in favor or running it as child.
 void continue_as_child(void);
 
+#define RESTART_MSG "Please terminate this instance by running \"wsl -t <distro>\" from Windows shell and try again.\n"
+
 int main(int argc, char *argv[]) {
 #ifndef NDEBUG
     printf("Starting nslogin with arguments: ");
@@ -61,10 +63,12 @@ int main(int argc, char *argv[]) {
     // Wait for systemd to be ready
     pid_t systemdPid = find_systemd();
     if (systemdPid == 0) {
-        perror("Could not find systemd PID");
+        fprintf(stderr, "Systemd is not running. " RESTART_MSG);
         exit(1);
     }
-    while (!wait_on_systemd()) {
+    if (!wait_on_systemd()) {
+        fprintf(stderr, RESTART_MSG);
+        exit(1);
     }
 
     // Gain root privilege
