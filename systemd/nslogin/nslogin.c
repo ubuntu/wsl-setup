@@ -48,6 +48,8 @@ void continue_as_child(void);
 #define RESTART_MSG "Please terminate this instance by running \"wsl -t <distro>\" from Windows shell and try again.\n"
 
 int main(int argc, char *argv[]) {
+    uid_t uid = getuid();
+    gid_t gid = getgid();
 #ifndef NDEBUG
     printf("Starting nslogin with arguments: ");
     for (int i = 0; i < argc; i++) {
@@ -55,8 +57,6 @@ int main(int argc, char *argv[]) {
     }
     putc('\n', stdout);
     // print euid
-    uid_t uid = getuid();
-    gid_t gid = getgid();
     printf("euid: %d\n", geteuid());
     printf("uid: %d\n", getuid());
 #endif
@@ -177,8 +177,8 @@ static int symlink_basename_cmp(const char *symlink, const char *name, int lengt
 static bool match_owner(const char *path, uid_t uid, gid_t gid) {
     struct stat fileStat;
     if (stat(path, &fileStat) != 0) {
-        char msg[80];
-        snprintf(msg, 80, "Failed to stat %s", path);
+        char msg[96];
+        snprintf(msg, 96, "Failed to stat %s", path);
         perror(msg);
         return false;
     }
@@ -194,9 +194,9 @@ pid_t find_systemd(void) {
     };
 
     struct procInfo systemd = {"systemd", 7, 0};
-    char exeLinkPath[80] = {'\0'};
+    char exeLinkPath[16] = {'\0'};
     for (int16_t pidCandidate = 2; pidCandidate < INT16_MAX; pidCandidate++) {
-        snprintf(exeLinkPath, 80, "/proc/%" SCNd16 "/exe", pidCandidate);
+        snprintf(exeLinkPath, 16, "/proc/%" SCNd16 "/exe", pidCandidate);
         int res = symlink_basename_cmp(exeLinkPath, systemd.basename, systemd.basenameSize);
         if (res != 0) {
             continue;
