@@ -16,11 +16,6 @@
  */
 
 #define _GNU_SOURCE
-#ifndef _XOPEN_SOURCE
-#define _XOPEN_SOURCE 700
-#endif
-#define _LARGEFILE64_SOURCE
-#define _FILE_OFFSET_BITS 64
 
 #include <ctype.h>
 #include <dirent.h>
