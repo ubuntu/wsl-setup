@@ -155,7 +155,7 @@ static bool is_systemd_startup_complete(sd_bus *bus) {
     // bus available at this point.
     bool starting = (strncmp(msg, "initializing", 12) == 0 || strncmp(msg, "starting", 8) == 0);
     free(msg);
-    return starting;
+    return !starting;
 }
 
 /// Returns 0 if the basename of the symlink target matches the expected name up to length.
