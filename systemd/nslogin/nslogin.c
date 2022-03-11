@@ -156,7 +156,7 @@ static bool is_systemd_startup_complete(sd_bus *bus) {
 }
 
 /// Returns 0 if the basename of the symlink target matches the expected name up to length.
-static int symlink_basename_cmp(const char *symlink, const char *name, int length) {
+static int symlink_basename_cmp(const char *symlink, const char *name, size_t length) {
     char target[PATH_MAX];
     ssize_t len = readlink(symlink, target, PATH_MAX);
     if (len == -1) {
@@ -189,7 +189,7 @@ static bool match_owner(const char *path, uid_t uid, gid_t gid) {
 pid_t find_systemd(void) {
     struct procInfo {
         const char *basename;
-        int basenameSize;
+        size_t basenameSize;
         uid_t owner;
     };
 
@@ -214,7 +214,7 @@ bool wait_on_systemd(void) {
     bool systemdStarted = true;
     int waitCounts = 0;
     int busOk = -1;
-    const int timeoutUs = 500000;
+    const unsigned int timeoutUs = 500000;
     const int loopMax = 19;
     for (busOk = sd_bus_default_system(&bus); busOk < 0 && waitCounts < loopMax; waitCounts++) {
         usleep(timeoutUs); // 500 ms.
