@@ -15,6 +15,9 @@
  *
  */
 
+// That's GCC's way of letting us access GNU extensions. We either define this macro in this source file, before all
+// includes or on the Makefile.
+// NOLINTNEXTLINE(bugprone-reserved-identifier)
 #define _GNU_SOURCE
 
 #include <fcntl.h>

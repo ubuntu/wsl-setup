@@ -1,3 +1,6 @@
-Checks: 'bugprone-*,performance-*,clang-analyzer-*'
+# -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling generates warnings suggesting to use function
+# snprintf_s, printf_s etc which are optional per C standard and apparently GCC opted out.
+
+Checks: 'bugprone-*,performance-*,clang-analyzer-*,-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling'
 HeaderFilterRegex: .+\.h$
 
