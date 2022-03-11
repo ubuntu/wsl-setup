@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <systemd/sd-bus.h>
 #include <unistd.h>
@@ -189,6 +190,18 @@ static int symlink_basename_cmp(const char *symlink, const char *name, int lengt
     return strncmp(targetBasename, name, length);
 }
 
+static bool match_owner(const char *path, uid_t uid, gid_t gid) {
+    struct stat fileStat;
+    if (stat(path, &fileStat) != 0) {
+        char msg[80];
+        snprintf(msg, 80, "Failed to stat %s", path);
+        perror(msg);
+        return false;
+    }
+
+    return uid == fileStat.st_uid && gid == fileStat.st_gid;
+}
+
 pid_t find_systemd(void) {
     struct procInfo {
         const char *basename;
@@ -202,6 +215,9 @@ pid_t find_systemd(void) {
         snprintf(exeLinkPath, 80, "/proc/%d/exe", pidCanditate);
         int res = symlink_basename_cmp(exeLinkPath, systemd.basename, systemd.basenameSize);
         if (res != 0) {
+            continue;
+        }
+        if (!match_owner(exeLinkPath, systemd.owner, systemd.owner)) {
             continue;
         }
         long offset = strrchr(exeLinkPath, '/') + 1 - exeLinkPath;
