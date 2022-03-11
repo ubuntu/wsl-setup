@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
         exit(4);
     }
 
-    // Drop priviledges back as the current user
+    // Drop privileges back as the current user
     if (seteuid(uid) != 0) {
         perror("seteuid back as user");
         exit(5);
@@ -211,8 +211,8 @@ pid_t find_systemd(void) {
 
     struct procInfo systemd = {"systemd", 7, 0};
     char exeLinkPath[80] = {'\0'};
-    for (int32_t pidCanditate = 10; pidCanditate < INT32_MAX; pidCanditate++) {
-        snprintf(exeLinkPath, 80, "/proc/%d/exe", pidCanditate);
+    for (int32_t pidCandidate = 10; pidCandidate < INT32_MAX; pidCandidate++) {
+        snprintf(exeLinkPath, 80, "/proc/%d/exe", pidCandidate);
         int res = symlink_basename_cmp(exeLinkPath, systemd.basename, systemd.basenameSize);
         if (res != 0) {
             continue;
