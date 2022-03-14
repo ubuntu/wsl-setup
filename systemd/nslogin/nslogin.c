@@ -66,11 +66,11 @@ int main(int argc, char *argv[]) {
     // Wait for systemd to be ready
     pid_t systemdPid = find_systemd();
     if (systemdPid == 0) {
-        fprintf(stderr, "Systemd is not running. " RESTART_MSG);
+        fprintf(stderr, "ERROR: Systemd is not running. " RESTART_MSG);
         exit(1);
     }
     if (!wait_on_systemd()) {
-        fprintf(stderr, RESTART_MSG);
+        fprintf(stderr, "ERROR: Systemd is running, but unable to complete the boot. " RESTART_MSG);
         exit(1);
     }
 
@@ -223,6 +223,10 @@ bool wait_on_systemd(void) {
         usleep(timeoutUs); // 500 ms.
         busOk = sd_bus_default_system(&bus);
     }
+    // Notice that the timeout is not restarted. 'waitCounts' is 'global' for both loops.
+    // Also, since the last operation executed in the previous loop was an assignment to 'busOk',
+    // which could happen at the last iteration of the loop, we need to check once again for bus errors before running
+    // the following loop.
     // If a timeout had occurred before and bus was still unavailable, the following loop will not even run.
     for (; busOk >= 0 && waitCounts <= loopMax && !(systemdStarted = is_systemd_startup_complete(bus)); waitCounts++) {
         usleep(timeoutUs); // 500 ms.
@@ -307,7 +311,7 @@ int enter_target_ns(pid_t PID) {
     }
 
     if (preserveDir) {
-        if(chdir(currentDir)!=0){
+        if (chdir(currentDir) != 0) {
             perror("Attempt to keep working directory");
         }
     }
