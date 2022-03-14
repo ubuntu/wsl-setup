@@ -2,7 +2,7 @@ SRC=nslogin.c
 LIBS=-lsystemd
 CFLAGS=-Wall -Wextra -Wconversion -pedantic
 CMODEFLAGS=-O0 -g -DDEBUG
-POSTBUILD=sudo chown root:root $@ && sudo chmod a+s $@
+POSTBUILD=sudo chown root:root $@ && sudo chmod ug+s $@
 LINTER=clang-tidy-12
 
 nslogin: $(SRC)
