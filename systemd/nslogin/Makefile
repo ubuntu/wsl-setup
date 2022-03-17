@@ -23,6 +23,7 @@ Release: nslogin
 
 
 install: Release
+	mkdir -p $(DESTDIR)$(libexecdir)
 	$(INSTALL) -o root -m 6755 ./nslogin $(DESTDIR)$(libexecdir)
 
 
