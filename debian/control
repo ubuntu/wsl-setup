@@ -3,6 +3,7 @@ Section: admin
 Priority: optional
 Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 Build-Depends: debhelper-compat (= 13),
+               libsystemd-dev,
 Standards-Version: 4.6.0
 Homepage: https://github.com/ubuntu/wsl-setup
 Description: WSL setup snap launcher
@@ -11,7 +12,7 @@ Description: WSL setup snap launcher
  It will be deprecated once snap is supported on WSL.
 
 Package: wsl-setup
-Architecture: all
+Architecture: any
 Depends: ${shlibs:Depends},
          ${misc:Depends},
 Description: ${source:Synopsis}
