@@ -10,10 +10,13 @@ export libexecdir = $(exec_prefix)/libexec
 
 .PHONY: install clean
 
+nslogin:
+	$(MAKE) -C ./systemd/nslogin/
+
 
 install:
 	mkdir -p $(DESTDIR)$(libexecdir)
-	$(MAKE) -C ./systemd/nslogin/ install 
+	$(MAKE) -C ./systemd/nslogin/ install
 	$(INSTALL) -o root -m 755 ./wsl-setup $(DESTDIR)$(libexecdir)
 	$(INSTALL) -o root -m 755 ./systemd/wsl-systemd $(DESTDIR)$(libexecdir)
 
