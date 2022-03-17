@@ -11,7 +11,7 @@ Description: WSL setup snap launcher
  It will be deprecated once snap is supported on WSL.
 
 Package: wsl-setup
-Architecture: all
+Architecture: any
 Depends: ${shlibs:Depends},
          ${misc:Depends},
 Description: ${source:Synopsis}
