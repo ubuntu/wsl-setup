@@ -1,5 +1,5 @@
 # GNU Standard says we should not assign DESTDIR, but this minor adjustment is really handy when debugging.
-DESTDIR:=$(shell realpath $(DESTDIR))
+DESTDIR:=$(if $(DESTDIR), $(shell realpath $(DESTDIR)),)
 export INSTALL=install
 
 # Standard GNU Makefile definitions:
@@ -22,7 +22,7 @@ install:
 
 
 clean:
+	$(MAKE) -C ./systemd/nslogin/ clean
 	rm -f $(DESTDIR)$(libexecdir)/wsl-setup
 	rm -f $(DESTDIR)$(libexecdir)/wsl-systemd
-	$(MAKE) -C ./systemd/nslogin/ clean
 
