@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/wait.h>
 #include <systemd/sd-bus.h>
 #include <unistd.h>
@@ -275,6 +276,9 @@ void continue_as_child(void) {
 
 #define MAX_NS_PATH 25
 #define TARGET_NS_COUNT 2
+// Implements a wrapper around SYS_pidfd_open syscall with flags defaulted to 0.
+int pidfd_open(pid_t PID) { return (int)syscall(SYS_pidfd_open, PID, 0); }
+
 int enter_target_ns(pid_t PID) {
     char currentDir[PATH_MAX];
     bool preserveDir = true;
@@ -283,38 +287,21 @@ int enter_target_ns(pid_t PID) {
         preserveDir = false;
     }
 
-    struct {
-        int nstype;
-        const char *nsname;
-        int nsfd;
-    } ns[TARGET_NS_COUNT] = {{CLONE_NEWPID, "pid", 0}, {CLONE_NEWNS, "mnt", 0}};
-
-    // open all file descriptors first to avoid problems to find them after setting namespaces.
-    char nsPath[MAX_NS_PATH];
-    for (int i = 0; i < TARGET_NS_COUNT; i++) {
-        memset(nsPath, 0, MAX_NS_PATH);
-        int res = snprintf(nsPath, MAX_NS_PATH, "/proc/%d/ns/%s", PID, ns[i].nsname);
-        if (res <= 0 || res >= MAX_NS_PATH) {
-            perror("Failed to format namespace path");
-            return -1;
-        }
-        int fd = open(nsPath, O_RDONLY);
-        if (fd < 0) {
-            char msg[80];
-            snprintf(msg, 80, "Failed to open namespace file descriptor from path %s", nsPath);
-            perror(msg);
-            return -2;
-        }
-        ns[i].nsfd = fd;
+    int pidFd = pidfd_open(PID);
+    if (pidFd == -1) {
+        perror("Failed to open Systemd PID file descriptor.");
+        return -2;
     }
 
+    int nstypes[2] = {CLONE_NEWPID, CLONE_NEWNS};
     for (int i = 0; i < TARGET_NS_COUNT; i++) {
-        if (setns(ns[i].nsfd, ns[i].nstype) != 0) {
+        if (setns(pidFd, nstypes[i]) != 0) {
             perror("Failed to set namespace");
             return -3;
         }
-        close(ns[i].nsfd);
     }
+
+    close(pidFd);
 
     if (preserveDir) {
         if (chdir(currentDir) != 0) {
