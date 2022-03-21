@@ -160,7 +160,7 @@ static bool is_systemd_startup_complete(sd_bus *bus) {
 
 /// Returns 0 if the basename of the symlink target matches the expected name up to length.
 static int symlink_basename_cmp(const char *symlink, const char *name, size_t length) {
-    char target[PATH_MAX];
+    char target[PATH_MAX + 1];
     ssize_t len = readlink(symlink, target, PATH_MAX);
     if (len == -1) {
         // This condition becomes really common if attempting to find the PID by trial-and-error.
