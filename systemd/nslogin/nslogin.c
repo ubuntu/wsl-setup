@@ -299,7 +299,7 @@ int enter_target_ns(pid_t PID) {
             return -1;
         }
         int fd = open(nsPath, O_RDONLY);
-        if (fd <= 0) {
+        if (fd < 0) {
             char msg[80];
             snprintf(msg, 80, "Failed to open namespace file descriptor from path %s", nsPath);
             perror(msg);
