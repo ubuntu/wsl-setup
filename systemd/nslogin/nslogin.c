@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/wait.h>
 #include <systemd/sd-bus.h>
 #include <unistd.h>
@@ -144,7 +145,7 @@ static bool is_systemd_startup_complete(sd_bus *bus) {
     int busOk = sd_bus_get_property_string(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
                                            "org.freedesktop.systemd1.Manager", "SystemState", &err, &msg);
     if (busOk < 0) {
-        fprintf(stderr, "Bus error %s", err.message);
+        fprintf(stderr, "Bus error %s\n", err.message);
         return false;
     }
 
@@ -160,7 +161,7 @@ static bool is_systemd_startup_complete(sd_bus *bus) {
 
 /// Returns 0 if the basename of the symlink target matches the expected name up to length.
 static int symlink_basename_cmp(const char *symlink, const char *name, size_t length) {
-    char target[PATH_MAX];
+    char target[PATH_MAX + 1];
     ssize_t len = readlink(symlink, target, PATH_MAX);
     if (len == -1) {
         // This condition becomes really common if attempting to find the PID by trial-and-error.
@@ -178,6 +179,7 @@ static int symlink_basename_cmp(const char *symlink, const char *name, size_t le
 }
 
 static bool match_owner(const char *path, uid_t uid, gid_t gid) {
+#define EXEPATH_BUFSIZE 16
     struct stat fileStat;
     if (stat(path, &fileStat) != 0) {
         char msg[96];
@@ -197,9 +199,13 @@ pid_t find_systemd(void) {
     };
 
     struct procInfo systemd = {"systemd", 7, 0};
-    char exeLinkPath[16] = {'\0'};
+    char exeLinkPath[EXEPATH_BUFSIZE] = {'\0'};
     for (int16_t pidCandidate = 2; pidCandidate < INT16_MAX; pidCandidate++) {
-        snprintf(exeLinkPath, 16, "/proc/%" SCNd16 "/exe", pidCandidate);
+        int ok = snprintf(exeLinkPath, EXEPATH_BUFSIZE, "/proc/%" SCNd16 "/exe", pidCandidate);
+        if (ok <= 0 || ok >= EXEPATH_BUFSIZE) {
+            fprintf(stderr, "Failed to format the PID path.\n");
+            continue;
+        }
         int res = symlink_basename_cmp(exeLinkPath, systemd.basename, systemd.basenameSize);
         if (res != 0) {
             continue;
@@ -268,8 +274,10 @@ void continue_as_child(void) {
     exit(EXIT_FAILURE);
 }
 
-#define MAX_NS_PATH 25
 #define TARGET_NS_COUNT 2
+// Implements a wrapper around SYS_pidfd_open syscall with flags defaulted to 0.
+int pidfd_open(pid_t PID) { return (int)syscall(SYS_pidfd_open, PID, 0); }
+
 int enter_target_ns(pid_t PID) {
     char currentDir[PATH_MAX];
     bool preserveDir = true;
@@ -278,37 +286,21 @@ int enter_target_ns(pid_t PID) {
         preserveDir = false;
     }
 
-    struct {
-        int nstype;
-        const char *nsname;
-        int nsfd;
-    } ns[TARGET_NS_COUNT] = {{CLONE_NEWPID, "pid", 0}, {CLONE_NEWNS, "mnt", 0}};
-
-    // open all file descriptors first to avoid problems to find them after setting namespaces.
-    char nsPath[MAX_NS_PATH];
-    for (int i = 0; i < TARGET_NS_COUNT; i++) {
-        memset(nsPath, 0, MAX_NS_PATH);
-        if (snprintf(nsPath, MAX_NS_PATH, "/proc/%d/ns/%s", PID, ns[i].nsname) <= 0) {
-            perror("Faild to format namespace path");
-            return -1;
-        }
-        int fd = open(nsPath, O_RDONLY);
-        if (fd <= 0) {
-            char msg[80];
-            snprintf(msg, 80, "Failed to open namespace file descriptor from path %s", nsPath);
-            perror(msg);
-            return -2;
-        }
-        ns[i].nsfd = fd;
+    int pidFd = pidfd_open(PID);
+    if (pidFd == -1) {
+        perror("Failed to open Systemd PID file descriptor.");
+        return -2;
     }
 
+    const int nstypes[TARGET_NS_COUNT] = {CLONE_NEWPID, CLONE_NEWNS};
     for (int i = 0; i < TARGET_NS_COUNT; i++) {
-        if (setns(ns[i].nsfd, ns[i].nstype) != 0) {
+        if (setns(pidFd, nstypes[i]) != 0) {
             perror("Failed to set namespace");
             return -3;
         }
-        close(ns[i].nsfd);
     }
+
+    close(pidFd);
 
     if (preserveDir) {
         if (chdir(currentDir) != 0) {
