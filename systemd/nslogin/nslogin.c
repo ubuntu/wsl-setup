@@ -293,7 +293,7 @@ int enter_target_ns(pid_t PID) {
         return -2;
     }
 
-    int nstypes[2] = {CLONE_NEWPID, CLONE_NEWNS};
+    const int nstypes[TARGET_NS_COUNT] = {CLONE_NEWPID, CLONE_NEWNS};
     for (int i = 0; i < TARGET_NS_COUNT; i++) {
         if (setns(pidFd, nstypes[i]) != 0) {
             perror("Failed to set namespace");
