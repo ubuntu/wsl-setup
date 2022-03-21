@@ -178,6 +178,7 @@ static int symlink_basename_cmp(const char *symlink, const char *name, size_t le
 }
 
 static bool match_owner(const char *path, uid_t uid, gid_t gid) {
+#define EXEPATH_BUFSIZE 16
     struct stat fileStat;
     if (stat(path, &fileStat) != 0) {
         char msg[96];
@@ -197,9 +198,13 @@ pid_t find_systemd(void) {
     };
 
     struct procInfo systemd = {"systemd", 7, 0};
-    char exeLinkPath[16] = {'\0'};
+    char exeLinkPath[EXEPATH_BUFSIZE] = {'\0'};
     for (int16_t pidCandidate = 2; pidCandidate < INT16_MAX; pidCandidate++) {
-        snprintf(exeLinkPath, 16, "/proc/%" SCNd16 "/exe", pidCandidate);
+        int ok = snprintf(exeLinkPath, EXEPATH_BUFSIZE, "/proc/%" SCNd16 "/exe", pidCandidate);
+        if (ok <= 0 || ok >= EXEPATH_BUFSIZE) {
+            fprintf(stderr, "Failed to format the PID path.\n");
+            continue;
+        }
         int res = symlink_basename_cmp(exeLinkPath, systemd.basename, systemd.basenameSize);
         if (res != 0) {
             continue;
@@ -288,7 +293,8 @@ int enter_target_ns(pid_t PID) {
     char nsPath[MAX_NS_PATH];
     for (int i = 0; i < TARGET_NS_COUNT; i++) {
         memset(nsPath, 0, MAX_NS_PATH);
-        if (snprintf(nsPath, MAX_NS_PATH, "/proc/%d/ns/%s", PID, ns[i].nsname) <= 0) {
+        int res = snprintf(nsPath, MAX_NS_PATH, "/proc/%d/ns/%s", PID, ns[i].nsname);
+        if (res <= 0 || res >= MAX_NS_PATH) {
             perror("Failed to format namespace path");
             return -1;
         }
