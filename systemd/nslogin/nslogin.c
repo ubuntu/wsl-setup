@@ -274,7 +274,6 @@ void continue_as_child(void) {
     exit(EXIT_FAILURE);
 }
 
-#define MAX_NS_PATH 25
 #define TARGET_NS_COUNT 2
 // Implements a wrapper around SYS_pidfd_open syscall with flags defaulted to 0.
 int pidfd_open(pid_t PID) { return (int)syscall(SYS_pidfd_open, PID, 0); }
