@@ -1,3 +1,9 @@
+wsl-setup (0.2) jammy; urgency=medium
+
+  * Systemd experimental support (LP: #1962556)
+
+ -- Didier Roche <didrocks@ubuntu.com>  Thu, 17 Mar 2022 16:08:44 +0100
+
 wsl-setup (0.1.2) jammy; urgency=medium
 
   [ Jean-Baptiste Lallement ]
