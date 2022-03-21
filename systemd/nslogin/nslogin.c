@@ -144,7 +144,7 @@ static bool is_systemd_startup_complete(sd_bus *bus) {
     int busOk = sd_bus_get_property_string(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
                                            "org.freedesktop.systemd1.Manager", "SystemState", &err, &msg);
     if (busOk < 0) {
-        fprintf(stderr, "Bus error %s", err.message);
+        fprintf(stderr, "Bus error %s\n", err.message);
         return false;
     }
 
