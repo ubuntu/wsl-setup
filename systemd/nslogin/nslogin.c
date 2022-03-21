@@ -289,7 +289,7 @@ int enter_target_ns(pid_t PID) {
     for (int i = 0; i < TARGET_NS_COUNT; i++) {
         memset(nsPath, 0, MAX_NS_PATH);
         if (snprintf(nsPath, MAX_NS_PATH, "/proc/%d/ns/%s", PID, ns[i].nsname) <= 0) {
-            perror("Faild to format namespace path");
+            perror("Failed to format namespace path");
             return -1;
         }
         int fd = open(nsPath, O_RDONLY);
