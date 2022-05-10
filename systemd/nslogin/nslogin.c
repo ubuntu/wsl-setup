@@ -205,6 +205,12 @@ pid_t find_systemd(void) {
 
     struct procInfo systemd = {"systemd", 7, 0};
     char exeLinkPath[EXEPATH_BUFSIZE] = {'\0'};
+    const int loopMax = 3;
+    const unsigned int timeoutUs = 500000;
+
+    // Sometimes we detect systemd is not running, requiring the user to attempt relaunching their
+    // wsl distro, so try to see if we see it after waiting a short ammount of time.
+    for (int waitCounts = 0; waitCounts < loopMax; ++waitCounts) {
     for (int16_t pidCandidate = 2; pidCandidate < INT16_MAX; pidCandidate++) {
         int ok = snprintf(exeLinkPath, EXEPATH_BUFSIZE, "/proc/%" SCNd16 "/exe", pidCandidate);
         if (ok <= 0 || ok >= EXEPATH_BUFSIZE) {
@@ -219,6 +225,9 @@ pid_t find_systemd(void) {
             continue;
         }
         return (pid_t)pidCandidate;
+        }
+
+        usleep(timeoutUs); // 500 ms.
     }
     return 0;
 }
