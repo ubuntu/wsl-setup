@@ -49,11 +49,16 @@ int enter_target_ns(int PID);
 /// Stops this process in favor or running it as child.
 void continue_as_child(void);
 
-#define RESTART_MSG "Please terminate this instance by running \"wsl -t <distro>\" from Windows shell and try again.\n"
+#define RESTART_MSG "Please terminate this instance by running \"wsl -t %s\" from Windows shell and try again.\n"
 
 int main(int argc, char *argv[]) {
     uid_t uid = getuid();
     gid_t gid = getgid();
+    char *distro = getenv("WSL_DISTRO_NAME");
+    if (!distro) {
+        distro = "<distro>";
+    }
+
 #ifndef NDEBUG
     printf("Starting nslogin with arguments: ");
     for (int i = 0; i < argc; i++) {
@@ -67,11 +72,11 @@ int main(int argc, char *argv[]) {
     // Wait for systemd to be ready
     pid_t systemdPid = find_systemd();
     if (systemdPid == 0) {
-        fprintf(stderr, "ERROR: Systemd is not running. " RESTART_MSG);
+        fprintf(stderr, "ERROR: Systemd is not running. " RESTART_MSG, distro);
         exit(1);
     }
     if (!wait_on_systemd()) {
-        fprintf(stderr, "ERROR: Systemd is running, but unable to complete the boot. " RESTART_MSG);
+        fprintf(stderr, "ERROR: Systemd is running, but unable to complete the boot. " RESTART_MSG, distro);
         exit(1);
     }
 
