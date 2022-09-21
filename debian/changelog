@@ -1,3 +1,9 @@
+wsl-setup (0.3) kinetic; urgency=medium
+
+  * Enables launching subiquity snap (LP: #1990426)
+
+ -- Carlos Nihelton <carlosnsoliveira@gmail.com>  Wed, 21 Sep 2022 12:31:06 -0300
+
 wsl-setup (0.2) jammy; urgency=medium
 
   * Systemd experimental support (LP: #1962556)
