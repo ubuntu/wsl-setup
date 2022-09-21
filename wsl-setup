@@ -34,32 +34,44 @@ function mount_snaps() {
     done
 }
 
+UDI="ubuntu-desktop-installer"
 snap_core=$(ls -1 /var/lib/snapd/snaps/core20_*.snap||true|sort -n -t_ -k2|tail -1)
 snap_theme=$(ls -1 /var/lib/snapd/snaps/gtk-common-themes_*.snap||true|sort -n -t_ -k2|tail -1)
-snap_wslsetup=$(ls -1 /var/lib/snapd/snaps/ubuntu-desktop-installer_*.snap||true|sort -n -t_ -k2|tail -1)
+snap_udi=$(ls -1 /var/lib/snapd/snaps/"${UDI}"_*.snap||true|sort -n -t_ -k2|tail -1)
+snap_subiquity=$(ls -1 /var/lib/snapd/snaps/subiquity_*.snap||true|sort -n -t_ -k2|tail -1)
 
 if [ -z "${snap_core}" ]; then
     echo "E: Could not find core20 snap"
     exit 1
-elif [ -z "${snap_theme}" ]; then
-    echo "E: Could not find gtk-common-themes snap"
-    exit 1
-elif [ -z "${snap_wslsetup}" ]; then
-    echo "E: Could not find ubuntu-desktop-installer snap"
-    exit 1
+elif [ -z "${snap_subiquity}" ]; then
+    if [ -z "${snap_udi}" ]; then
+        echo "E: Could not find either ${UDI} or subiquity snaps"
+        exit 1
+    elif [ -z "${snap_theme}" ]; then
+        echo "E: Could not find gtk-common-themes snap required by the ${UDI}."
+        exit 1
+    fi
 fi
-
-mount_snaps "${snap_core}" "${snap_wslsetup}" "${snap_theme}"
 
 #############################################
 # Setup our mock snap environment variables #
 #############################################
+snap_name="${UDI}"
+snap_wslsetup="${snap_udi}"
+# Unlikely that both will coexist, but if so, Subiquity would have been added
+# later to the rootfs, thus being the modern choice it should have preference.
+if [ -n "${snap_subiquity}" ]; then
+    snap_name="subiquity"
+    snap_wslsetup="${snap_subiquity}"
+fi
 
-export SNAP=/snap/ubuntu-desktop-installer/current
+mount_snaps "${snap_core}" "${snap_wslsetup}" "${snap_theme}"
+
+export SNAP="/snap/${snap_name}/current"
 export SNAP_REVISION="$(basename "${snap_wslsetup}" .snap|cut -d_ -f2)"
-export SNAP_USER_DATA="${HOME}/snap/current/ubuntu-desktop-installer"
+export SNAP_USER_DATA="${HOME}/snap/current/${snap_name}"
 mkdir -p "${SNAP_USER_DATA}"
-export SNAP_USER_COMMON="${HOME}/snap/common/ubuntu-desktop-installer"
+export SNAP_USER_COMMON="${HOME}/snap/common/${snap_name}"
 mkdir -p "${SNAP_USER_COMMON}"
 # We don't use the desktop extension runtime, everything is included in the snap itself.
 export SNAP_DESKTOP_RUNTIME="${SNAP}"
@@ -82,9 +94,11 @@ export SNAP_ARCH
 export XDG_RUNTIME_DIR="/run/user/${SUDO_UID}"
 export SNAP_CORE_DIR="/snap/core20/current"
 
-# Mount theme snap inside our snap
-if ! grep -qs " $(readlink -f $SNAP)/data-dir " /proc/mounts; then
-    mount -o bind /snap/gtk-common-themes/current/share $SNAP/data-dir
+# Mount theme snap inside the UDI snap
+if [[ "${snap_name}" == "${UDI}" ]]; then
+    if ! grep -qs " $(readlink -f $SNAP)/data-dir " /proc/mounts; then
+        mount -o bind /snap/gtk-common-themes/current/share $SNAP/data-dir
+    fi
 fi
 
 exec $SNAP/bin/ubuntu-wsl-setup $@
