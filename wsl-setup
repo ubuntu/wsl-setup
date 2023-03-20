@@ -92,7 +92,8 @@ fi
 export SNAP_ARCH
 
 export XDG_RUNTIME_DIR="/run/user/${SUDO_UID}"
-export SNAP_CORE_DIR="/snap/core20/current"
+snap_core_name=$(basename "$snap_core" | cut -f1 -d'_')
+export SNAP_CORE_DIR="/snap/${snap_core_name}/current"
 
 # Mount theme snap inside the UDI snap
 if [[ "${snap_name}" == "${UDI}" ]]; then
