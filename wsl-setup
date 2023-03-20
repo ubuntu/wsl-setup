@@ -41,7 +41,7 @@ snap_udi=$(ls -1 /var/lib/snapd/snaps/"${UDI}"_*.snap||true|sort -n -t_ -k2|tail
 snap_subiquity=$(ls -1 /var/lib/snapd/snaps/subiquity_*.snap||true|sort -n -t_ -k2|tail -1)
 
 if [ -z "${snap_core}" ]; then
-    echo "E: Could not find core20 snap"
+    echo "E: Could not find core snap"
     exit 1
 elif [ -z "${snap_subiquity}" ]; then
     if [ -z "${snap_udi}" ]; then
