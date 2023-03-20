@@ -35,7 +35,7 @@ function mount_snaps() {
 }
 
 UDI="ubuntu-desktop-installer"
-snap_core=$(ls -1 /var/lib/snapd/snaps/core20_*.snap||true|sort -n -t_ -k2|tail -1)
+snap_core=$(ls -1 /var/lib/snapd/snaps/core2?_*.snap||true|sort -n -t_ -k2|tail -1)
 snap_theme=$(ls -1 /var/lib/snapd/snaps/gtk-common-themes_*.snap||true|sort -n -t_ -k2|tail -1)
 snap_udi=$(ls -1 /var/lib/snapd/snaps/"${UDI}"_*.snap||true|sort -n -t_ -k2|tail -1)
 snap_subiquity=$(ls -1 /var/lib/snapd/snaps/subiquity_*.snap||true|sort -n -t_ -k2|tail -1)
