@@ -1,3 +1,15 @@
+wsl-setup (0.4) lunar; urgency=medium
+
+  [ Didier Roche ]
+  * Release from the main branch
+
+  [ Carlos Nihelton ]
+  * Allows for core 22 and later
+  * Updates error message
+  * Updates the exported SNAP_CORE_DIR
+
+ -- Carlos Nihelton <carlosnsoliveira@gmail.com>  Tue, 21 Mar 2023 09:54:53 -0300
+
 wsl-setup (0.3) kinetic; urgency=medium
 
   * Enables launching subiquity snap (LP: #1990426)
