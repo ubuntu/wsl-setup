@@ -35,13 +35,13 @@ function mount_snaps() {
 }
 
 UDI="ubuntu-desktop-installer"
-snap_core=$(ls -1 /var/lib/snapd/snaps/core20_*.snap||true|sort -n -t_ -k2|tail -1)
+snap_core=$(ls -1 /var/lib/snapd/snaps/core2?_*.snap||true|sort -n -t_ -k2|tail -1)
 snap_theme=$(ls -1 /var/lib/snapd/snaps/gtk-common-themes_*.snap||true|sort -n -t_ -k2|tail -1)
 snap_udi=$(ls -1 /var/lib/snapd/snaps/"${UDI}"_*.snap||true|sort -n -t_ -k2|tail -1)
 snap_subiquity=$(ls -1 /var/lib/snapd/snaps/subiquity_*.snap||true|sort -n -t_ -k2|tail -1)
 
 if [ -z "${snap_core}" ]; then
-    echo "E: Could not find core20 snap"
+    echo "E: Could not find core snap"
     exit 1
 elif [ -z "${snap_subiquity}" ]; then
     if [ -z "${snap_udi}" ]; then
@@ -92,7 +92,8 @@ fi
 export SNAP_ARCH
 
 export XDG_RUNTIME_DIR="/run/user/${SUDO_UID}"
-export SNAP_CORE_DIR="/snap/core20/current"
+snap_core_name=$(basename "$snap_core" | cut -f1 -d'_')
+export SNAP_CORE_DIR="/snap/${snap_core_name}/current"
 
 # Mount theme snap inside the UDI snap
 if [[ "${snap_name}" == "${UDI}" ]]; then
