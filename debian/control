@@ -6,10 +6,9 @@ Build-Depends: debhelper-compat (= 13),
                libsystemd-dev,
 Standards-Version: 4.6.0
 Homepage: https://github.com/ubuntu/wsl-setup
-Description: WSL setup snap launcher
- This package helps setting up a mock snap environment on WSL to start
- the ubuntu-desktop-installer in system_setup mode.
- It will be deprecated once snap is supported on WSL.
+Description: WSL integration setup
+ This package helps setting up a working WSL environment with systemd
+ enabled by default.
 
 Package: wsl-setup
 Architecture: any
