@@ -1,7 +1,0 @@
-BasedOnStyle: LLVM
-ColumnLimit: 120
-DeriveLineEnding: true
-IndentWidth: 4
-KeepEmptyLinesAtTheStartOfBlocks: false
-UseCRLF: false
-UseTab: Never

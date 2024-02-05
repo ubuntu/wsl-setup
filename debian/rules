@@ -1,12 +1,5 @@
 #!/usr/bin/make -f
 #export DH_VERBOSE = 1
 
-NSLOGINPATH = debian/wsl-setup/usr/libexec/nslogin
-
 %:
 	dh $@
-
-# nslogin needs to be setuid.
-override_dh_fixperms:
-	ls $(NSLOGINPATH)
-	dh_fixperms --exclude $(NSLOGINPATH)
