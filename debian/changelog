@@ -1,3 +1,14 @@
+wsl-setup (0.5) noble; urgency=medium
+
+  [ Jean-Baptiste Lallement ]
+  [ Didier Roche-Tolomelli ]
+  * Remove old systemd start sequence: this is now integrated into WSL itself.
+  * Remove old OOBE snap integration as it’s phased out.
+  * Add the systemd specific unit overrides for WSL as we remove them from the
+    launcher.
+
+ -- Didier Roche-Tolomelli <didrocks@ubuntu.com>  Mon, 05 Feb 2024 11:52:46 +0100
+
 wsl-setup (0.4) lunar; urgency=medium
 
   [ Didier Roche ]
