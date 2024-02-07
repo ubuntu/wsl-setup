@@ -1,3 +1,12 @@
+wsl-setup (0.5.1) noble; urgency=medium
+
+  * Remove wsl.conf from etc/. We will build it in the chroot directly now
+    as the file may be altered by the user to add additional options and ship
+    it as part of the rootfs. No need for conffiles handling as we didn’t ship
+    any WSL build with it.
+
+ -- Didier Roche <didrocks@ubuntu.com>  Wed, 07 Feb 2024 11:24:57 +0100
+
 wsl-setup (0.5) noble; urgency=medium
 
   [ Jean-Baptiste Lallement ]
