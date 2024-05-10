@@ -1,3 +1,10 @@
+wsl-setup (0.5.3) noble; urgency=medium
+
+  * Override cloud-init default_user configuration for Ubuntu distros
+    to prevent creation of a default user which confused WSLg (LP: #2065349).
+
+ -- Carlos Nihelton <carlos.santanadeoliveira@canonical.com>  Thu, 02 May 2024 11:52:43 -0300
+
 wsl-setup (0.5.2) noble; urgency=medium
 
   * Ship cloud-init configuration file to enable WSL datasource
