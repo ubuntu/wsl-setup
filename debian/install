@@ -1,2 +1,3 @@
 systemd/ lib/
 cloud/ etc/
+update-motd.d/ etc/

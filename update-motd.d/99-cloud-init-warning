@@ -1,0 +1,12 @@
+#!/bin/sh
+# Warns if cloud-init didn't fully succeed during initialization of this instance.
+
+stampfile="$HOME/.skip-cloud-init-warning"
+
+[ -f "$stampfile" ] && exit 0
+
+if grep -q "ERROR\|WARNING" /var/log/cloud-init.log; then
+  echo 'Something went wrong during initialization of this distro.'
+  echo 'To know more run "cloud-init status --long" or read the log at /var/log/cloud-init.log.'
+  touch "$stampfile"
+fi
