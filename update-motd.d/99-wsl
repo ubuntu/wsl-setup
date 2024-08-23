@@ -1,8 +1,10 @@
 #!/bin/sh
 # Warns if cloud-init didn't fully succeed during initialization of this instance.
+set -e
 
 stampfile="$HOME/.skip-cloud-init-warning"
 
+[ "$(systemd-detect-virt)" != "wsl" ] && exit 0
 [ -f "$stampfile" ] && exit 0
 
 if grep -q "ERROR\|WARNING" /var/log/cloud-init.log; then

@@ -4,5 +4,3 @@
 %:
 	dh $@
 
-execute_after_dh_fixperms:
-	chmod 0755 update-motd.d/99-cloud-init-warning
