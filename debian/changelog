@@ -1,3 +1,11 @@
+wsl-setup (0.5.4) oracular; urgency=medium
+
+  * fix(cloud-init): DS List should contain one additional datasource in
+    order to skip running cloud-init when there is no user-data file.
+  * Deliver warnings via MotD if cloud-init doesn't succeed. (LP: #2080223)
+
+ -- Didier Roche-Tolomelli <didrocks@ubuntu.com>  Tue, 10 Sep 2024 12:50:13 +0200
+
 wsl-setup (0.5.3) oracular; urgency=medium
 
   * Override cloud-init default_user configuration for Ubuntu distros
