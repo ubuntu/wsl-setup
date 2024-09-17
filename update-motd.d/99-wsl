@@ -7,7 +7,7 @@ stampfile="$HOME/.skip-cloud-init-warning"
 [ "$(systemd-detect-virt)" != "wsl" ] && exit 0
 
 cloudinitlog="/var/log/cloud-init.log"
-[ ! -f "$cloudinitlog" ] && exit 0
+[ ! -r "$cloudinitlog" ] && exit 0
 
 [ -f "$stampfile" ] && exit 0
 
