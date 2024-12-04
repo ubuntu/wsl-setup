@@ -1,5 +1,5 @@
-systemd/ lib/
 cloud/ etc/
 update-motd.d/99-wsl etc/update-motd.d/
+systemd/ lib/
 wsl-setup usr/libexec/
 wsl/ usr/share/
