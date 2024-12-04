@@ -2,7 +2,7 @@
     "profiles": [
         {
             "colorScheme": "Ubuntu",
-            "suppressApplicationTitle": "true",
+            "suppressApplicationTitle": true,
             "cursorShape": "filledBox",
             "font": {
                 "face": "Ubuntu Mono",
