@@ -32,13 +32,17 @@ echo "This might take a while"
 
 # Read the Windows user name.
 win_username=$(powershell.exe -NoProfile -Command '$Env:UserName') 2>/dev/null || true
+# strip control chars like \r and \n
 win_username="${win_username%%[[:cntrl:]]}"
+# replace any potential whitespaces with underscores.
+win_username="${win_username// /_}"
 
 # Copy the Ubuntu font into Windows filesystem, assuming the fonts-ubuntu package is seeded.
-local_app_data=$(powershell.exe -NoProfile -Command '$Env:local_app_data') 2>/dev/null || true
-local_app_data=$(wslpath -au "${local_app_data%%[[:cntrl:]]}") 2>/dev/null || true
+local_app_data=$(powershell.exe -NoProfile -Command '$Env:LocalAppData') 2>/dev/null || true
+local_app_data="${local_app_data%%[[:cntrl:]]}"
 
 if [ -n "${local_app_data}" ]; then
+  local_app_data=$(wslpath -au "${local_app_data}") 2>/dev/null || true
   fonts_dir="${local_app_data}/Microsoft/Windows/Fonts"
   mkdir -p "${fonts_dir}"
   cp "/usr/share/fonts/truetype/ubuntu/UbuntuMono[wght].ttf" "${fonts_dir}"
@@ -53,15 +57,17 @@ user_id=$(get_first_interactive_uid)
 # If we don’t have a non system user, let’s create it.
 if [ -z "${user_id}" ] ; then
   create_regular_user "${win_username}"
+
   user_id=$(get_first_interactive_uid)
   if [ -z "${user_id}" ] ; then
     echo 'Failed to create a regular user account'
     exit 1
   fi
-fi
 
-# Set user_id as default user on WSL.
-if ! sed -i "s/^defaultUid.*\$/defaultUid=${user_id}/" "/etc/wsl-distribution.conf"; then
-  echo "ERROR: failed to set user as default" >&2
-  exit 1
+  # Set the newly created user as the WSL default.
+  user_name=$(id -un "${user_id}")
+  if ! printf "\n[user]\ndefault=${user_name}\n" >> /etc/wsl.conf; then
+    echo "ERROR: failed to set user as default" >&2
+    exit 1
+  fi
 fi
