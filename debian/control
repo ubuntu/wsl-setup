@@ -12,7 +12,11 @@ Description: WSL integration setup
 
 Package: wsl-setup
 Architecture: any
-Depends: ${shlibs:Depends},
+Depends: adduser,
+         fonts-ubuntu,
+         gawk,
+         passwd,
+         ${shlibs:Depends},
          ${misc:Depends},
 Description: ${source:Synopsis}
  ${source:Extended-Description}
