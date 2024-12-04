@@ -1,0 +1,67 @@
+#!/bin/bash
+set -eu
+
+# get_first_interactive_uid returns first interactive non system user uid with uid >=1000.
+function get_first_interactive_uid() {
+  getent passwd | egrep -v '/nologin|/false|/sync' | sort -t: -k3,3n | awk -F: '$3 >= 1000 { print $3; exit }'
+}
+
+# create_regular_user prompts user for a username and assign default WSL permissions.
+# First argument is the prefilled username.
+function create_regular_user() {
+  local default_username="${1}"
+
+  DEFAULT_GROUPS='adm,cdrom,sudo,dip,plugdev'
+
+  # Prompt from the username prefilled with the Windows one.
+  read -e -p 'Create a default Unix user account: ' -i "${win_username}" username
+
+  # Create the user and change its default groups.
+  if ! /usr/sbin/adduser --quiet --gecos '' "${username}"; then
+    return
+  fi
+  if ! /usr/sbin/usermod "${username}" -aG "${DEFAULT_GROUPS}"; then
+    # Failure: try to delete the user.
+    /usr/sbin/deluser "${username}"
+  fi
+}
+
+
+echo "Provisioning the new WSL instance $(wslpath -am / | cut -d '/' -f 4)"
+echo "This might take a while"
+
+# Read the Windows user name.
+win_username=$(powershell.exe -NoProfile -Command '$Env:UserName') 2>/dev/null || true
+win_username="${win_username%%[[:cntrl:]]}"
+
+# Copy the Ubuntu font into Windows filesystem, assuming the fonts-ubuntu package is seeded.
+local_app_data=$(powershell.exe -NoProfile -Command '$Env:local_app_data') 2>/dev/null || true
+local_app_data=$(wslpath -au "${local_app_data%%[[:cntrl:]]}") 2>/dev/null || true
+
+if [ -n "${local_app_data}" ]; then
+  fonts_dir="${local_app_data}/Microsoft/Windows/Fonts"
+  mkdir -p "${fonts_dir}"
+  cp "/usr/share/fonts/truetype/ubuntu/UbuntuMono[wght].ttf" "${fonts_dir}"
+fi
+
+# Wait for cloud-init to finish.
+cloud-init status --wait > /dev/null 2>&1 || true
+
+# Check if there is a pre-provisioned users (pre-baked on the rootfs or created by cloud-init).
+user_id=$(get_first_interactive_uid)
+
+# If we don’t have a non system user, let’s create it.
+if [ -z "${user_id}" ] ; then
+  create_regular_user "${win_username}"
+  user_id=$(get_first_interactive_uid)
+  if [ -z "${user_id}" ] ; then
+    echo 'Failed to create a regular user account'
+    exit 1
+  fi
+fi
+
+# Set user_id as default user on WSL.
+if ! sed -i "s/^defaultUid.*\$/defaultUid=${user_id}/" "/etc/wsl-distribution.conf"; then
+  echo "ERROR: failed to set user as default" >&2
+  exit 1
+fi
