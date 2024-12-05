@@ -26,6 +26,29 @@ function create_regular_user() {
   fi
 }
 
+# set_user_as_default sets the given username as the default user in the wsl.conf configuration.
+function set_user_as_default() {
+  username="${1}"
+
+  wsl_conf="/etc/wsl.conf"
+  touch ${wsl_conf}
+
+  # Append [user] section with default if they don't exist.
+  if ! grep -q "^\[user\]" "${wsl_conf}"; then
+      echo -e "\n[user]\ndefault=${username}" >> "${wsl_conf}"
+      return
+  fi
+
+  # Replace any previous default key in the [user] section.
+  sed -i '/^\[user\]/,/^\[/{/^\s*default\s*=/c\
+default='"${username}"'
+}' "${wsl_conf}"
+
+  # If default is still missing, append it to the [user] section
+  if ! sed -n '/^\[user\]/,/^\[/{/^\s*default\s*=/p}' "${wsl_conf}" | grep -q .; then
+    sed -i '/^\[user\]/a\default='"${username}" "${wsl_conf}"
+  fi
+}
 
 echo "Provisioning the new WSL instance $(wslpath -am / | cut -d '/' -f 4)"
 echo "This might take a while"
@@ -65,9 +88,5 @@ if [ -z "${user_id}" ] ; then
   fi
 
   # Set the newly created user as the WSL default.
-  user_name=$(id -un "${user_id}")
-  if ! printf "\n[user]\ndefault=${user_name}\n" >> /etc/wsl.conf; then
-    echo "ERROR: failed to set user as default" >&2
-    exit 1
-  fi
-fi
+  username=$(id -un "${user_id}")
+  set_user_as_default "${username}"
