@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -euo pipefail
 
 # get_first_interactive_uid returns first interactive non system user uid with uid >=1000.
 function get_first_interactive_uid() {
@@ -28,9 +28,9 @@ function create_regular_user() {
 
 # set_user_as_default sets the given username as the default user in the wsl.conf configuration.
 function set_user_as_default() {
-  username="${1}"
+  local username="${1}"
 
-  wsl_conf="/etc/wsl.conf"
+  local wsl_conf="/etc/wsl.conf"
   touch ${wsl_conf}
 
   # Append [user] section with default if they don't exist.
