@@ -11,11 +11,13 @@ function get_first_interactive_uid() {
 function create_regular_user() {
   local default_username="${1}"
 
-  local valid_username_regex='^[a-z_][a-z0-9_-]*[$]?$'
+  local valid_username_regex='^[a-z_][a-z0-9_-]*$'
   local DEFAULT_GROUPS='adm,cdrom,sudo,dip,plugdev'
 
   # Filter the prefilled username to remove invalid characters.
-  default_username=$(echo "${default_username}" | tr -cd 'a-zA-Z0-9_-')
+  default_username=$(echo "${default_username}" | sed 's/[^a-z0-9_-]//g')
+  # It should start with a character or _.
+  default_username=$(echo "${default_username}" | sed 's/^[^a-z_]//')
 
   # Ensure a valid username
   while true; do
