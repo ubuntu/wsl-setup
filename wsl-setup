@@ -11,19 +11,37 @@ function get_first_interactive_uid() {
 function create_regular_user() {
   local default_username="${1}"
 
-  DEFAULT_GROUPS='adm,cdrom,sudo,dip,plugdev'
+  local valid_username_regex='^[a-z_][a-z0-9_-]*[$]?$'
+  local DEFAULT_GROUPS='adm,cdrom,sudo,dip,plugdev'
 
-  # Prompt from the username prefilled with the Windows one.
-  read -e -p 'Create a default Unix user account: ' -i "${win_username}" username
+  # Filter the prefilled username to remove invalid characters.
+  default_username=$(echo "${default_username}" | tr -cd 'a-zA-Z0-9_-')
 
-  # Create the user and change its default groups.
-  if ! /usr/sbin/adduser --quiet --gecos '' "${username}"; then
-    return
-  fi
-  if ! /usr/sbin/usermod "${username}" -aG "${DEFAULT_GROUPS}"; then
-    # Failure: try to delete the user.
-    /usr/sbin/deluser "${username}"
-  fi
+  # Ensure a valid username
+  while true; do
+    # Prefill the prompt with the Windows username.
+    read -e -p "Create a default Unix user account: " -i "${default_username}" username
+
+    # Validate the username.
+    if [[ ! "${username}" =~ ${valid_username_regex} ]]; then
+      echo "Invalid username. A valid username must start with a lowercase letter or underscore, and can contain lowercase letters, digits, underscores, and dashes."
+      continue
+    fi
+
+    # Create the user and change its default groups.
+    if ! /usr/sbin/adduser --gecos '' "${username}"; then
+      echo "Failed to create user '${username}'. Please choose a different name."
+      continue
+    fi
+
+    if ! /usr/sbin/usermod "${username}" -aG "${DEFAULT_GROUPS}"; then
+      echo "Failed to add '${username}' to default groups. Attempting cleanup."
+      /usr/sbin/deluser "${username}"
+      continue
+    fi
+
+    break
+  done
 }
 
 # set_user_as_default sets the given username as the default user in the wsl.conf configuration.
