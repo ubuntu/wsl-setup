@@ -31,14 +31,14 @@ function create_regular_user() {
     fi
 
     # Create the user and change its default groups.
-    if ! /usr/sbin/adduser --gecos '' "${username}"; then
+    if ! /usr/sbin/adduser --quiet --gecos '' "${username}"; then
       echo "Failed to create user '${username}'. Please choose a different name."
       continue
     fi
 
     if ! /usr/sbin/usermod "${username}" -aG "${DEFAULT_GROUPS}"; then
       echo "Failed to add '${username}' to default groups. Attempting cleanup."
-      /usr/sbin/deluser "${username}"
+      /usr/sbin/deluser --quiet "${username}"
       continue
     fi
 
@@ -47,11 +47,12 @@ function create_regular_user() {
 }
 
 # set_user_as_default sets the given username as the default user in the wsl.conf configuration.
+# It will only set it if there is no existing default under the [user] section.
 function set_user_as_default() {
   local username="${1}"
 
   local wsl_conf="/etc/wsl.conf"
-  touch ${wsl_conf}
+  touch "${wsl_conf}"
 
   # Append [user] section with default if they don't exist.
   if ! grep -q "^\[user\]" "${wsl_conf}"; then
@@ -59,19 +60,14 @@ function set_user_as_default() {
       return
   fi
 
-  # Replace any previous default key in the [user] section.
-  sed -i '/^\[user\]/,/^\[/{/^\s*default\s*=/c\
-default='"${username}"'
-}' "${wsl_conf}"
-
-  # If default is still missing, append it to the [user] section
+  # If default is missing from the user section, append it to it.
   if ! sed -n '/^\[user\]/,/^\[/{/^\s*default\s*=/p}' "${wsl_conf}" | grep -q .; then
     sed -i '/^\[user\]/a\default='"${username}" "${wsl_conf}"
   fi
 }
 
 echo "Provisioning the new WSL instance $(wslpath -am / | cut -d '/' -f 4)"
-echo "This might take a while"
+echo "This might take a while..."
 
 # Read the Windows user name.
 win_username=$(powershell.exe -NoProfile -Command '$Env:UserName') 2>/dev/null || true
@@ -106,7 +102,8 @@ if [ -z "${user_id}" ] ; then
     echo 'Failed to create a regular user account'
     exit 1
   fi
+fi
 
-  # Set the newly created user as the WSL default.
-  username=$(id -un "${user_id}")
-  set_user_as_default "${username}"
+# Set the newly created user as the WSL default.
+username=$(id -un "${user_id}")
+set_user_as_default "${username}"
