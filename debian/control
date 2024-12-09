@@ -3,7 +3,6 @@ Section: admin
 Priority: optional
 Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 Build-Depends: debhelper-compat (= 13),
-               libsystemd-dev,
 Standards-Version: 4.6.0
 Homepage: https://github.com/ubuntu/wsl-setup
 Description: WSL integration setup
@@ -12,7 +11,11 @@ Description: WSL integration setup
 
 Package: wsl-setup
 Architecture: any
-Depends: ${shlibs:Depends},
+Depends: adduser,
+         fonts-ubuntu,
+         gawk,
+         passwd,
+         ${shlibs:Depends},
          ${misc:Depends},
 Description: ${source:Synopsis}
  ${source:Extended-Description}
