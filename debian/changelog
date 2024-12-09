@@ -1,3 +1,16 @@
+wsl-setup (0.5.5) plucky; urgency=medium
+
+  [ Carlos Nihelton ]
+  [ Didier Roche-Tolomelli ]
+  * Adapt to new Microsoft package format: (LP: #2091293):
+    - Ship a script that:
+      1. Copy the font to user’s directory.
+      2. Wait for cloud-init.
+      3. Request to create an user if not created yet and set it as default.
+    - Ship static assets like terminal profile and ubuntu icon in .ico format.
+
+ -- Didier Roche-Tolomelli <didrocks@ubuntu.com>  Thu, 05 Dec 2024 15:28:16 +0100
+
 wsl-setup (0.5.4) oracular; urgency=medium
 
   * fix(cloud-init): DS List should contain one additional datasource in
