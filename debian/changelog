@@ -1,3 +1,11 @@
+wsl-setup (0.5.6) plucky; urgency=medium
+
+  [ Carlos Nihelton ]
+  [ Didier Roche-Tolomelli ]
+  * Add dependency on cloud-init.
+
+ -- Didier Roche-Tolomelli <didrocks@ubuntu.com>  Tue, 10 Dec 2024 14:03:34 +0100
+
 wsl-setup (0.5.5) plucky; urgency=medium
 
   [ Carlos Nihelton ]
