@@ -12,6 +12,7 @@ Description: WSL integration setup
 Package: wsl-setup
 Architecture: any
 Depends: adduser,
+         cloud-init,
          fonts-ubuntu,
          gawk,
          passwd,
