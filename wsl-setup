@@ -84,7 +84,14 @@ if [ -n "${local_app_data}" ]; then
   local_app_data=$(wslpath -au "${local_app_data}") 2>/dev/null || true
   fonts_dir="${local_app_data}/Microsoft/Windows/Fonts"
   mkdir -p "${fonts_dir}"
-  cp "/usr/share/fonts/truetype/ubuntu/UbuntuMono[wght].ttf" "${fonts_dir}"
+  font="UbuntuMono[wght].ttf"
+  cp "/usr/share/fonts/truetype/ubuntu/${font}" "${fonts_dir}"
+
+  # Register the font for the current user.
+  dst=$(wslpath -aw "${fonts_dir}/${font}") 2>/dev/null || true
+  powershell.exe -NoProfile -Command '& {
+      $null = New-ItemProperty -Name "Ubuntu Mono (TrueType)" -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts" -PropertyType string -Value "'"${dst}"'"
+  }'
 fi
 
 # Wait for cloud-init to finish.
