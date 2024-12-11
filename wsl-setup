@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+# command_not_found_handle is a noop function that prevents printing error messages if WSL interop is disabled.
+function command_not_found_handle() {
+  :
+}
+
 # get_first_interactive_uid returns first interactive non system user uid with uid >=1000.
 function get_first_interactive_uid() {
   getent passwd | egrep -v '/nologin|/false|/sync' | sort -t: -k3,3n | awk -F: '$3 >= 1000 { print $3; exit }'
@@ -85,13 +90,17 @@ if [ -n "${local_app_data}" ]; then
   fonts_dir="${local_app_data}/Microsoft/Windows/Fonts"
   mkdir -p "${fonts_dir}"
   font="UbuntuMono[wght].ttf"
-  cp "/usr/share/fonts/truetype/ubuntu/${font}" "${fonts_dir}"
+  if [ ! -f "${fonts_dir}/${font}" ]; then
+    cp "/usr/share/fonts/truetype/ubuntu/UbuntuMono[wght].ttf" "${fonts_dir}" || true
 
-  # Register the font for the current user.
-  dst=$(wslpath -aw "${fonts_dir}/${font}") 2>/dev/null || true
-  powershell.exe -NoProfile -Command '& {
-      $null = New-ItemProperty -Name "Ubuntu Mono (TrueType)" -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts" -PropertyType string -Value "'"${dst}"'"
-  }'
+    # Register the font for the current user.
+    src=$(wslpath -aw "/usr/share/fonts/truetype/ubuntu/${font}") 2>/dev/null || true
+    dst=$(wslpath -aw "${fonts_dir}/${font}") 2>/dev/null || true
+    powershell.exe -NoProfile -Command '& {
+                $null = New-Item -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion" -Name "Fonts";
+                $null = New-ItemProperty -Name "Ubuntu Mono (TrueType)" -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts" -PropertyType string -Value "'"${dst}"'";
+    }' || true
+  fi
 fi
 
 # Wait for cloud-init to finish.
