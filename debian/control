@@ -16,6 +16,7 @@ Depends: adduser,
          fonts-ubuntu,
          gawk,
          passwd,
+         systemd,
          ${shlibs:Depends},
          ${misc:Depends},
 Description: ${source:Synopsis}
