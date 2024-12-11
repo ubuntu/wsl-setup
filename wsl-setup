@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+# command_not_found_handle is a noop function that prevents printing error messages if WSL interop is disabled.
+function command_not_found_handle() {
+  :
+}
+
 # get_first_interactive_uid returns first interactive non system user uid with uid >=1000.
 function get_first_interactive_uid() {
   getent passwd | egrep -v '/nologin|/false|/sync' | sort -t: -k3,3n | awk -F: '$3 >= 1000 { print $3; exit }'
@@ -66,6 +71,34 @@ function set_user_as_default() {
   fi
 }
 
+# install_ubuntu_font copies the Ubuntu font into Windows filesystem and register it for the current Windows user.
+function install_ubuntu_font() {
+  local local_app_data=$(powershell.exe -NoProfile -Command '$Env:LocalAppData') 2>/dev/null || true
+  local_app_data="${local_app_data%%[[:cntrl:]]}"
+
+  if [ -z "${local_app_data}" ]; then
+    return
+  fi
+
+  local_app_data=$(wslpath -au "${local_app_data}") 2>/dev/null || true
+  local fonts_dir="${local_app_data}/Microsoft/Windows/Fonts"
+  local font="UbuntuMono[wght].ttf"
+  mkdir -p "${fonts_dir}" 2>/dev/null
+  if [ -f "${fonts_dir}/${font}" ]; then
+    return
+  fi
+
+  cp "/usr/share/fonts/truetype/ubuntu/${font}" "${fonts_dir}" 2>/dev/null || true
+
+  # Register the font for the current user.
+  local dst=$(wslpath -aw "${fonts_dir}/${font}") 2>/dev/null || true
+  powershell.exe -NoProfile -Command '& {
+              $null = New-Item -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion" -Name "Fonts" 2>$null;
+              $null = New-ItemProperty -Name "Ubuntu Mono (TrueType)" -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts" -PropertyType string -Value "'"${dst}"'" 2>$null;
+  }' || true
+}
+
+
 echo "Provisioning the new WSL instance $(wslpath -am / | cut -d '/' -f 4)"
 echo "This might take a while..."
 
@@ -76,16 +109,7 @@ win_username="${win_username%%[[:cntrl:]]}"
 # replace any potential whitespaces with underscores.
 win_username="${win_username// /_}"
 
-# Copy the Ubuntu font into Windows filesystem, assuming the fonts-ubuntu package is seeded.
-local_app_data=$(powershell.exe -NoProfile -Command '$Env:LocalAppData') 2>/dev/null || true
-local_app_data="${local_app_data%%[[:cntrl:]]}"
-
-if [ -n "${local_app_data}" ]; then
-  local_app_data=$(wslpath -au "${local_app_data}") 2>/dev/null || true
-  fonts_dir="${local_app_data}/Microsoft/Windows/Fonts"
-  mkdir -p "${fonts_dir}"
-  cp "/usr/share/fonts/truetype/ubuntu/UbuntuMono[wght].ttf" "${fonts_dir}"
-fi
+install_ubuntu_font
 
 # Wait for cloud-init to finish if systemd and its service is enabled.
 if status=$(LANG=C systemctl is-system-running 2>/dev/null) || [ "${status}" != "offline" ] && systemctl is-enabled --quiet cloud-init.service 2>/dev/null; then
