@@ -1,3 +1,14 @@
+wsl-setup (0.5.7) plucky; urgency=medium
+
+  [ Carlos Nihelton ]
+  [ Didier Roche-Tolomelli ]
+  * Work with systemd disabled rootfs, not shipping cloud-init and WSL 1
+  * Add dependency on systemd
+  * Register the font windows key to ensure the ubuntu font is exposed on
+    Windows.
+
+ -- Didier Roche-Tolomelli <didrocks@ubuntu.com>  Wed, 11 Dec 2024 15:35:22 +0100
+
 wsl-setup (0.5.6) plucky; urgency=medium
 
   [ Carlos Nihelton ]
