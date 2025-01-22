@@ -1,3 +1,10 @@
+wsl-setup (0.5.8) plucky; urgency=medium
+
+  * Ship wsl-setup under /usr/lib/wsl/ instead of libexec:
+    This is fixing Microsoft's checker warning.
+
+ -- Didier Roche-Tolomelli <didrocks@ubuntu.com>  Tue, 21 Jan 2025 15:58:21 +0100
+
 wsl-setup (0.5.7) plucky; urgency=medium
 
   [ Carlos Nihelton ]
