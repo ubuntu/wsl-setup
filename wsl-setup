@@ -99,7 +99,7 @@ function install_ubuntu_font() {
 }
 
 
-echo "Provisioning the new WSL instance $(wslpath -am / | cut -d '/' -f 4)"
+echo "Provisioning the new WSL instance $WSL_DISTRO_NAME"
 echo "This might take a while..."
 
 # Read the Windows user name.
