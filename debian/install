@@ -2,4 +2,5 @@ cloud/ etc/
 update-motd.d/99-wsl etc/update-motd.d/
 systemd/ lib/
 wsl-setup usr/lib/wsl/
+wait-for-cloud-init usr/lib/wsl/
 wsl/ usr/share/
