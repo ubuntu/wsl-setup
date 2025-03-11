@@ -6,7 +6,7 @@
 # checking if the service is enabled would still report success.
 set -euo pipefail
 
-if status=$(LANG=C systemctl is-system-running 2>/dev/null) || [ "${status}" != "offline" ] && systemctl is-enabled --quiet cloud-init.service 2>/dev/null; then
+if status=$(LANG=C systemctl is-system-running 2>/dev/null) || [ "${status}" != "offline" ] && systemctl is-enabled --quiet cloud-init-local.service 2>/dev/null; then
   cloud-init status --wait > /dev/null 2>&1 || true
   touch /etc/cloud/cloud-init.disabled || true
 fi
