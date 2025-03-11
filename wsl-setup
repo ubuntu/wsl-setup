@@ -111,8 +111,10 @@ win_username="${win_username// /_}"
 
 install_ubuntu_font
 
-# Wait for cloud-init to finish if systemd and its service is enabled.
-./wait-for-cloud-init
+# Wait for cloud-init to finish if systemd and its service is enabled
+# by running the script located at the same dir as this one.
+this_dir=$(dirname "$(realpath $0)")
+source "${this_dir}/wait-for-cloud-init"
 
 # Check if there is a pre-provisioned users (pre-baked on the rootfs or created by cloud-init).
 user_id=$(get_first_interactive_uid)
