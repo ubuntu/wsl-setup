@@ -112,9 +112,7 @@ win_username="${win_username// /_}"
 install_ubuntu_font
 
 # Wait for cloud-init to finish if systemd and its service is enabled.
-if status=$(LANG=C systemctl is-system-running 2>/dev/null) || [ "${status}" != "offline" ] && systemctl is-enabled --quiet cloud-init.service 2>/dev/null; then
-  cloud-init status --wait > /dev/null 2>&1 || true
-fi
+./wait-for-cloud-init
 
 # Check if there is a pre-provisioned users (pre-baked on the rootfs or created by cloud-init).
 user_id=$(get_first_interactive_uid)

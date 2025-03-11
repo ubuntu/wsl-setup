@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# This script checks if cloud-init can run under WSL, for which case it then waits for cloud-init to finish.
+# The various systemd checks are required because WSL allows for systemd to be disabled, under which condition
+# checking if the service is enabled would still report success.
+set -euo pipefail
+
+if status=$(LANG=C systemctl is-system-running 2>/dev/null) || [ "${status}" != "offline" ] && systemctl is-enabled --quiet cloud-init.service 2>/dev/null; then
+  cloud-init status --wait > /dev/null 2>&1 || true
+fi
