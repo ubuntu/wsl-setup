@@ -1,3 +1,14 @@
+wsl-setup (0.5.9) plucky; urgency=medium
+
+  * Fix dependency on cloud-init.service: (LP: #2104307)
+    - The wsl-setup script was supposed to sync with cloud-init
+    - It checked if the cloud-init.service was enabled.
+    - That unit no longer exists on Plucky.
+    - It now checks for cloud-init-local.service, which exists
+      on plucky and prior releases as well.
+
+ -- Carlos Nihelton <cnihelton@ubuntu.com>  Thu, 27 Mar 2025 10:22:28 -0300
+
 wsl-setup (0.5.8) plucky; urgency=medium
 
   * Ship wsl-setup under /usr/lib/wsl/ instead of libexec:
