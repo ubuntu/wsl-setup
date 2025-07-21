@@ -71,11 +71,26 @@ function set_user_as_default() {
   fi
 }
 
+# powershell_env outputs the contents of PowerShell.exe environment variables $Env:<ARG>
+# encoded in UTF-8.
+function powershell_env() {
+  local var="$1"
+  if [ "$#" != 1 ]; then
+    echo "powershell_env: expected 1 argument, got $# ."
+    return 1
+  fi
+
+  local ret=$(powershell.exe -NoProfile -Command '& {
+                            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+                            $Env:'"${var}"'}') 2>/dev/null || true
+  # strip control chars like \r and \n
+  ret="${ret%%[[:cntrl:]]}"
+  echo "$ret"
+}
+
 # install_ubuntu_font copies the Ubuntu font into Windows filesystem and register it for the current Windows user.
 function install_ubuntu_font() {
-  local local_app_data=$(powershell.exe -NoProfile -Command '$Env:LocalAppData') 2>/dev/null || true
-  local_app_data="${local_app_data%%[[:cntrl:]]}"
-
+  local local_app_data=$(powershell_env "LocalAppData")
   if [ -z "${local_app_data}" ]; then
     return
   fi
@@ -103,9 +118,7 @@ echo "Provisioning the new WSL instance $WSL_DISTRO_NAME"
 echo "This might take a while..."
 
 # Read the Windows user name.
-win_username=$(powershell.exe -NoProfile -Command '$Env:UserName') 2>/dev/null || true
-# strip control chars like \r and \n
-win_username="${win_username%%[[:cntrl:]]}"
+win_username=$(powershell_env "UserName")
 # replace any potential whitespaces with underscores.
 win_username="${win_username// /_}"
 
