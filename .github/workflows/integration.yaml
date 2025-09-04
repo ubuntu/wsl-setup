@@ -1,0 +1,210 @@
+name: Integration tests
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+env:
+  # TODO: Transform this into a matrix
+  base_url: https://cdimages.ubuntu.com/ubuntu-wsl/daily-live/current
+  image_name: questing-wsl-amd64.wsl
+  images_dir: images
+  instance: Ubuntu-${{ github.run_id }}
+  profile_script: /etc/profile.d/99-quit-wsl.sh
+jobs:
+  build-deb:
+    name: Build wsl-setup debian package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+      - name: Build deb
+        uses: canonical/desktop-engineering/gh-actions/common/build-debian@main
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          docker-image: ubuntu:devel
+  cache-img:
+    name: Cache the daily-live image
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.compute-cache-key.outputs.cache-key }}
+    steps:
+      - name: Compute image cache key
+        id: compute-cache-key
+        shell: bash
+        run: |
+          set -eu
+
+          shafile="SHA256SUMS"
+          uri="${{ env.base_url }}/${shafile}"
+          curl -o "$shafile" "${uri}"
+          if [ $? -ne 0 ]; then
+          echo "::error:: Failed to download the checksum file from $uri."
+              exit 1
+          fi
+
+          # If a line matches, then awk extracts the first field: the checksum.
+          key=$(grep -E "^[a-f0-9]+ \*${{ env.image_name }}$" "$shafile" | awk '{print $1}')
+          if [ -z "$key" ]; then
+          echo "::error:: Checksum for '${{ env.image_name }}' not found in the $shafile file."
+              exit 2
+          fi
+          echo "cache-key=$key" >> "$GITHUB_OUTPUT"
+      - name: Check image cache first
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.images_dir }}
+          key: ${{ steps.compute-cache-key.outputs.cache-key }}
+          enableCrossOsArchive: true
+      - name: Download a daily-live image
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -eu
+
+          mkdir -p "${{ env.images_dir }}"
+          curl -o "${{ env.images_dir }}/${{ env.image_name }}" "${{ env.base_url }}/${{ env.image_name }}"
+          if [ $? -ne 0 ]; then
+          echo "::error:: Failed to download the image from ${{ env.base_url }}/${{ env.image_name }}'."
+              exit 1
+          fi
+  test-wsl-setup:
+    needs: [build-deb, cache-img]
+    name: "Integration tests"
+    runs-on: windows-2025 # WSL and winget are preinstalled and working
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: ci-artifacts
+          # name: is left blank so that all artifacts are downloaded, thus we don't couple on
+          # whatever name was chosen in the build-debian action.
+      - name: Fetch the image from cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.images_dir }}
+          key: ${{ needs.cache-img.outputs.cache-key }}
+          restore-keys: |
+            ${{ needs.cache-img.outputs.cache-key }}
+          enableCrossOsArchive: true
+      - name: "Set up a WSL instance from the daily image"
+        shell: powershell
+        env:
+          WSL_UTF8: "1" # Recommended otherwise it's hard to read wsl output on Github
+          # Just to skip the interactive session
+          cloudinit: |
+            #cloud-config
+            users:
+            - name: u
+              gecos: Ubuntu User
+              groups: [adm,dialout,cdrom,floppy,sudo,audio,dip,video,plugdev,netdev]
+              sudo: ALL=(ALL) NOPASSWD:ALL
+              shell: /bin/bash
+            write_files:
+            - path: /etc/wsl.conf
+              append: true
+              content: |
+                [user]
+                default=u
+            packages: [hello]
+        run: |
+          # No launch so we can install the deb before running the OOBE
+          wsl --install --no-launch --from-file "./${{ env.images_dir }}/${{ env.image_name }}" --name "${{ env.instance }}"
+          wsl -d "${{ env.instance }}" -u root -- ls -l "./ci-artifacts/wsl-setup_*/"
+          wsl -d "${{ env.instance }}" -u root -- dpkg -i "./ci-artifacts/wsl-setup_*/wsl-setup_*.deb"
+
+          # In case cloud-init fails we don't get stuck on endless prompting.
+          wsl -d "${{ env.instance }}" -u root -- adduser --quiet --gecos '' --disabled-password ubuntu
+          wsl -d "${{ env.instance }}" -u root -- usermod ubuntu -aG "adm,cdrom,sudo,dip,plugdev"
+          wsl -d "${{ env.instance }}" -u root -- cloud-init status --wait
+          wsl -d "${{ env.instance }}" -u root -- bash -ec "rm /etc/cloud/cloud-init.disabled || true"
+          wsl -d "${{ env.instance }}" -u root -- bash -ec 'printf "#!/bin/bash\necho Exiting because the profile says so\nexit 0\n" > ${{ env.profile_script }}'
+          wsl -d "${{ env.instance }}" -u root -- chmod '0777' ${{ env.profile_script }}
+          wsl -d "${{ env.instance }}" -u root -- cloud-init clean --logs
+          wsl --shutdown
+
+          # Write the cloud-init user-data contents.
+          $cloudinitdir = New-Item -ItemType "Directory" -Path "${env:UserProfile}\.cloud-init\" -Force
+          # TODO: Investigate why UTF-8 BOM seems to break cloud-init.
+          $filePath="${cloudinitdir}\${{ env.instance }}.user-data"
+          $utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $False
+          [System.IO.File]::WriteAllLines($filePath, $env:cloudinit, $utf8NoBomEncoding)
+          Write-Output "Testing wsl-setup with cloud-init user data at ${cloudinitdir} :"
+          Get-Content "${cloudinitdir}\${{ env.instance }}.user-data"
+      - name: Test initial setup
+        timeout-minutes: 10
+        shell: powershell
+        run: |
+          wsl -d "${{ env.instance }}" # Will run the wsl-setup script.
+          if (!(Test-Path -Path "${env:LocalAppData}\Microsoft\Windows\Fonts\Ubuntu*.ttf")) {
+            Write-Error "Ubuntu font was not installed as expected"
+            Exit 1
+          }
+          if (!(Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts\" -Name "Ubuntu*" )) {
+            Write-Error "Ubuntu font was not registered"
+            Exit 2
+          }
+          wsl -d "${{ env.instance }}" -u root -- bash -ec "rm ${{ env.profile_script }} || true"
+          wsl -d "${{ env.instance }}" -u root -- bash -ec "cat /var/log/cloud-init.log || true"
+          wsl --terminate ${{ env.instance }}
+      - name: Assertions on the new instance
+        uses: ubuntu/WSL/.github/actions/wsl-bash@main
+        with:
+          distro: ${{ env.instance }}
+          working-dir: "~/"
+          exec: |
+            if [[ ! -r /usr/lib/wsl/ubuntu.ico ]]; then
+              echo "::error:: Missing Ubuntu icon in the /usr/share/wsl/ directory"
+              ls /usr/share/wsl/
+              exit 1
+            fi
+
+            if [[ ! -r /usr/lib/wsl/terminal-profile.json ]]; then
+              echo "::error:: Missing terminal profile fragment in the /usr/share/wsl/ directory"
+              ls /usr/share/wsl/
+              exit 2
+            fi
+
+            if [[ $(id -u) == 0 ]]; then
+              echo "::error:: Default user shouldn't be root"
+              exit 3
+            fi
+
+            if [[ $(whoami) != "u" ]]; then
+              echo "::error:: Default user doesn't match cloud-init's user-data."
+              exit 4
+            fi
+
+            if [[ $(LANG=C systemctl is-system-running) != "running" ]]; then
+               systemctl --failed
+               exit 5
+            fi
+
+            if [[ $(LANG=C systemctl is-active multipathd.service) != "inactive" ]]; then
+              echo "::error:: Unit multipathd.service should have been disabled by the multipathd.service.d/container.conf override"
+              systemctl status multipathd.service
+              exit 6
+            fi
+
+            if [[ $(systemctl is-active systemd-timesyncd.service) != "active" ]]; then
+              echo "::error:: Unit systemd-timesyncd.service should be enabled in WSL via systemd-timesyncd.service.d/wsl.conf override"
+              systemctl status systemd-timesyncd.service
+              exit 7
+            fi
+
+            if [[ ! -r "/etc/cloud/cloud-init.disabled" ]]; then
+              echo "::error:: Missing cloud-init.disabled marker file"
+              exit 7
+            fi
+
+            hello
+            if [[ $? != 0 ]]; then
+              echo "::error:: Failed to execute the hello program that should have been installed by cloud-init"
+              exit 8
+            fi
+      - name: "Clean up" # Probably not necessary since we're leveraging ephemeral GH's runners.
+        shell: powershell
+        run: |
+          wsl --unregister ${{ env.instance }}
