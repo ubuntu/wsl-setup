@@ -118,7 +118,7 @@ echo "Provisioning the new WSL instance $WSL_DISTRO_NAME"
 echo "This might take a while..."
 
 # Read the Windows user name.
-win_username=$(powershell_env "UserName")
+win_username=$(powershell_env "UserName.ToLower()")
 # replace any potential whitespaces with underscores.
 win_username="${win_username// /_}"
 
