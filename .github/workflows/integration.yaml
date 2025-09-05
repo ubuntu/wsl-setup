@@ -11,6 +11,7 @@ env:
   images_dir: images
   instance: Ubuntu-${{ github.run_id }}
   profile_script: /etc/profile.d/99-quit-wsl.sh
+  instance_working_dir: ~/wsl-setup-${{ github.run_id }}
 jobs:
   build-deb:
     name: Build wsl-setup debian package
@@ -149,61 +150,17 @@ jobs:
           wsl -d "${{ env.instance }}" -u root -- bash -ec "rm ${{ env.profile_script }} || true"
           wsl -d "${{ env.instance }}" -u root -- bash -ec "cat /var/log/cloud-init.log || true"
           wsl --terminate ${{ env.instance }}
+      - uses: ubuntu/WSL/.github/actions/wsl-checkout@main
+        with:
+          distro: ${{ env.instance }}
+          working-dir: ${{ env.instance_working_dir }}
       - name: Assertions on the new instance
         uses: ubuntu/WSL/.github/actions/wsl-bash@main
         with:
           distro: ${{ env.instance }}
-          working-dir: "~/"
+          working-dir: ${{ env.instance_working_dir }}
           exec: |
-            if [[ ! -r /usr/lib/wsl/ubuntu.ico ]]; then
-              echo "::error:: Missing Ubuntu icon in the /usr/share/wsl/ directory"
-              ls /usr/share/wsl/
-              exit 1
-            fi
-
-            if [[ ! -r /usr/lib/wsl/terminal-profile.json ]]; then
-              echo "::error:: Missing terminal profile fragment in the /usr/share/wsl/ directory"
-              ls /usr/share/wsl/
-              exit 2
-            fi
-
-            if [[ $(id -u) == 0 ]]; then
-              echo "::error:: Default user shouldn't be root"
-              exit 3
-            fi
-
-            if [[ $(whoami) != "u" ]]; then
-              echo "::error:: Default user doesn't match cloud-init's user-data."
-              exit 4
-            fi
-
-            if [[ $(LANG=C systemctl is-system-running) != "running" ]]; then
-               systemctl --failed
-               exit 5
-            fi
-
-            if [[ $(LANG=C systemctl is-active multipathd.service) != "inactive" ]]; then
-              echo "::error:: Unit multipathd.service should have been disabled by the multipathd.service.d/container.conf override"
-              systemctl status multipathd.service
-              exit 6
-            fi
-
-            if [[ $(systemctl is-active systemd-timesyncd.service) != "active" ]]; then
-              echo "::error:: Unit systemd-timesyncd.service should be enabled in WSL via systemd-timesyncd.service.d/wsl.conf override"
-              systemctl status systemd-timesyncd.service
-              exit 7
-            fi
-
-            if [[ ! -r "/etc/cloud/cloud-init.disabled" ]]; then
-              echo "::error:: Missing cloud-init.disabled marker file"
-              exit 7
-            fi
-
-            hello
-            if [[ $? != 0 ]]; then
-              echo "::error:: Failed to execute the hello program that should have been installed by cloud-init"
-              exit 8
-            fi
+            source test/integration-test.sh
       - name: "Clean up" # Probably not necessary since we're leveraging ephemeral GH's runners.
         shell: powershell
         run: |
