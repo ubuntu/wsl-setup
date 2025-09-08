@@ -2,6 +2,8 @@ name: Integration tests
 on:
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: "4 3 * * 2" # Tuesdays 03:04 am.
   push:
     branches: ["main"]
 env:
@@ -12,6 +14,7 @@ env:
   instance: Ubuntu-${{ github.run_id }}
   profile_script: /etc/profile.d/99-quit-wsl.sh
   instance_working_dir: ~/wsl-setup-${{ github.run_id }}
+
 jobs:
   build-deb:
     name: Build wsl-setup debian package
@@ -24,6 +27,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           docker-image: ubuntu:devel
+
   cache-img:
     name: Cache the daily-live image
     runs-on: ubuntu-latest
@@ -51,6 +55,7 @@ jobs:
               exit 2
           fi
           echo "cache-key=$key" >> "$GITHUB_OUTPUT"
+
       - name: Check image cache first
         id: cache
         uses: actions/cache@v4
@@ -58,6 +63,7 @@ jobs:
           path: ${{ env.images_dir }}
           key: ${{ steps.compute-cache-key.outputs.cache-key }}
           enableCrossOsArchive: true
+
       - name: Download a daily-live image
         if: steps.cache.outputs.cache-hit != 'true'
         shell: bash
@@ -70,6 +76,7 @@ jobs:
           echo "::error:: Failed to download the image from ${{ env.base_url }}/${{ env.image_name }}'."
               exit 1
           fi
+
   test-wsl-setup:
     needs: [build-deb, cache-img]
     name: "Integration tests"
@@ -81,6 +88,7 @@ jobs:
           path: ci-artifacts
           # name: is left blank so that all artifacts are downloaded, thus we don't couple on
           # whatever name was chosen in the build-debian action.
+
       - name: Fetch the image from cache
         id: cache
         uses: actions/cache@v4
@@ -90,6 +98,7 @@ jobs:
           restore-keys: |
             ${{ needs.cache-img.outputs.cache-key }}
           enableCrossOsArchive: true
+
       - name: "Set up a WSL instance from the daily image"
         shell: powershell
         env:
@@ -134,6 +143,7 @@ jobs:
           [System.IO.File]::WriteAllLines($filePath, $env:cloudinit, $utf8NoBomEncoding)
           Write-Output "Testing wsl-setup with cloud-init user data at ${cloudinitdir} :"
           Get-Content "${cloudinitdir}\${{ env.instance }}.user-data"
+
       - name: Test initial setup
         timeout-minutes: 10
         shell: powershell
@@ -150,10 +160,12 @@ jobs:
           wsl -d "${{ env.instance }}" -u root -- bash -ec "rm ${{ env.profile_script }} || true"
           wsl -d "${{ env.instance }}" -u root -- bash -ec "cat /var/log/cloud-init.log || true"
           wsl --terminate ${{ env.instance }}
+
       - uses: ubuntu/WSL/.github/actions/wsl-checkout@main
         with:
           distro: ${{ env.instance }}
           working-dir: ${{ env.instance_working_dir }}
+
       - name: Assertions on the new instance
         uses: ubuntu/WSL/.github/actions/wsl-bash@main
         with:
@@ -161,6 +173,7 @@ jobs:
           working-dir: ${{ env.instance_working_dir }}
           exec: |
             source test/integration-test.sh
+
       - name: "Clean up" # Probably not necessary since we're leveraging ephemeral GH's runners.
         shell: powershell
         run: |
