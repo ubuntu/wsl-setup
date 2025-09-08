@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 # This should run inside a WSL instance or machine prepared for testing purposes.
 # It requires installing the wsl-setup Debian package to assert on their results.
 brandingdir="/usr/share/wsl"
@@ -35,24 +35,22 @@ if [[ $(LANG=C systemctl is-active multipathd.service) != "inactive" ]]; then
   exit 6
 fi
 
-for unit in "systemd-timesyncd.service" "chrony.service"; do
-  systemctl is-enabled "${unit}"
-  if [[ $? == 0 ]]; then
-    if [[ $(LANG=C systemctl is-active "${unit}" ) != "active" ]]; then
-      echo "::error:: Unit ${unit} should be enabled in WSL via ${unit}.d/wsl.conf override"
-      systemctl status ${unit}
-      exit 7
-    fi
+# Let's not worry about chrony just yet.
+nts_unit="systemd-timesyncd.service"
+if systemctl is-enabled "${nts_unit}"; then
+  if [[ $(LANG=C systemctl is-active "${nts_unit}" ) != "active" ]]; then
+    echo "::error:: Unit ${nts_unit} should be enabled in WSL via ${nts_unit}.d/wsl.conf override"
+    systemctl status ${nts_unit}
+    exit 7
   fi
-done
+fi
 
 if [[ ! -r "/etc/cloud/cloud-init.disabled" ]]; then
   echo "::error:: Missing cloud-init.disabled marker file"
-  exit 7
+  exit 8
 fi
 
-hello
-if [[ $? != 0 ]]; then
+if ! hello; then
   echo "::error:: Failed to execute the hello program that should have been installed by cloud-init"
-  exit 8
+  exit 9
 fi
