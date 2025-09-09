@@ -175,6 +175,7 @@ jobs:
             source test/integration-test.sh
 
       - name: "Clean up" # Probably not necessary since we're leveraging ephemeral GH's runners.
+        if: always()
         shell: powershell
         run: |
           wsl --unregister ${{ env.instance }}
