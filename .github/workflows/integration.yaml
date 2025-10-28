@@ -8,8 +8,8 @@ on:
     branches: ["main"]
 env:
   # TODO: Transform this into a matrix
+  architecture: amd64
   base_url: https://cdimages.ubuntu.com/ubuntu-wsl/daily-live/current
-  image_name: questing-wsl-amd64.wsl
   images_dir: images
   instance: Ubuntu-${{ github.run_id }}
   profile_script: /etc/profile.d/99-quit-wsl.sh
@@ -33,6 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       cache-key: ${{ steps.compute-cache-key.outputs.cache-key }}
+      cache-image-name: ${{ steps.compute-cache-key.outputs.cache-image-name }}
     steps:
       - name: Compute image cache key
         id: compute-cache-key
@@ -42,19 +43,33 @@ jobs:
 
           shafile="SHA256SUMS"
           uri="${{ env.base_url }}/${shafile}"
-          curl -o "$shafile" "${uri}"
-          if [ $? -ne 0 ]; then
-          echo "::error:: Failed to download the checksum file from $uri."
-              exit 1
+          if ! curl -o "${shafile}" "${uri}"; then
+            echo "::error:: Failed to download the checksum file from $uri."
+            exit 1
+          fi
+
+          line=$(grep -E "^[a-f0-9]+ \*.+-${{ env.architecture }}.wsl$" "${shafile}")
+          if [ -z "${line}" ]; then
+            echo "::error:: Couldn't find checksum of an ${{ env.architecture }} image in ${shafile}."
+            exit 2
           fi
 
           # If a line matches, then awk extracts the first field: the checksum.
-          key=$(grep -E "^[a-f0-9]+ \*${{ env.image_name }}$" "$shafile" | awk '{print $1}')
+          key=$(awk '{print $1}' <<< "${line}")
           if [ -z "$key" ]; then
-          echo "::error:: Checksum for '${{ env.image_name }}' not found in the $shafile file."
-              exit 2
+            echo "::error:: Checksum for '${image_name}' not found in the $shafile file."
+            exit 3
           fi
+
+          # awk substr skipping the first character (the asterisk)
+          image_name=$(awk '{print substr($2, 2)}' <<< "${line}")
+          if [ -z "${image_name}" ]; then
+            echo "::error:: Image name not found."
+            exit 4
+          fi
+
           echo "cache-key=$key" >> "$GITHUB_OUTPUT"
+          echo "cache-image-name=$image_name" >> "$GITHUB_OUTPUT"
 
       - name: Check image cache first
         id: cache
@@ -67,14 +82,15 @@ jobs:
       - name: Download a daily-live image
         if: steps.cache.outputs.cache-hit != 'true'
         shell: bash
+        env:
+          image_name: ${{ steps.compute-cache-key.outputs.cache-image-name }}
         run: |
           set -eu
 
           mkdir -p "${{ env.images_dir }}"
-          curl -o "${{ env.images_dir }}/${{ env.image_name }}" "${{ env.base_url }}/${{ env.image_name }}"
-          if [ $? -ne 0 ]; then
-          echo "::error:: Failed to download the image from ${{ env.base_url }}/${{ env.image_name }}'."
-              exit 1
+          if ! curl -o "${{ env.images_dir }}/${image_name}" "${{ env.base_url }}/${image_name}"; then
+            echo "::error:: Failed to download the image from ${{ env.base_url }}/${image_name}'."
+            exit 1
           fi
 
   test-wsl-setup:
@@ -102,6 +118,7 @@ jobs:
       - name: "Set up a WSL instance from the daily image"
         shell: powershell
         env:
+          image_name: ${{ needs.cache-img.outputs.cache-image-name }}
           WSL_UTF8: "1" # Recommended otherwise it's hard to read wsl output on Github
           # Just to skip the interactive session
           cloudinit: |
@@ -121,7 +138,7 @@ jobs:
             packages: [hello]
         run: |
           # No launch so we can install the deb before running the OOBE
-          wsl --install --no-launch --from-file "./${{ env.images_dir }}/${{ env.image_name }}" --name "${{ env.instance }}"
+          wsl --install --no-launch --from-file "./${{ env.images_dir }}/${image_name}" --name "${{ env.instance }}"
           wsl -d "${{ env.instance }}" -u root -- ls -l "./ci-artifacts/wsl-setup_*/"
           wsl -d "${{ env.instance }}" -u root -- dpkg -i "./ci-artifacts/wsl-setup_*/wsl-setup_*.deb"
 
