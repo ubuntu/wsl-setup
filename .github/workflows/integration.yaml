@@ -138,7 +138,7 @@ jobs:
             packages: [hello]
         run: |
           # No launch so we can install the deb before running the OOBE
-          wsl --install --no-launch --from-file "./${{ env.images_dir }}/${image_name}" --name "${{ env.instance }}"
+          wsl --install --no-launch --from-file "${{ env.images_dir }}/${{ env.image_name }}" --name "${{ env.instance }}"
           wsl -d "${{ env.instance }}" -u root -- ls -l "./ci-artifacts/wsl-setup_*/"
           wsl -d "${{ env.instance }}" -u root -- dpkg -i "./ci-artifacts/wsl-setup_*/wsl-setup_*.deb"
 
