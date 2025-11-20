@@ -147,7 +147,7 @@ jobs:
           wsl -d "${{ env.instance }}" -u root -- usermod ubuntu -aG "adm,cdrom,sudo,dip,plugdev"
           wsl -d "${{ env.instance }}" -u root -- cloud-init status --wait
           wsl -d "${{ env.instance }}" -u root -- bash -ec "rm /etc/cloud/cloud-init.disabled || true"
-          wsl -d "${{ env.instance }}" -u root -- bash -ec 'printf "#!/bin/bash\necho Exiting because the profile says so\nexit 0\n" > ${{ env.profile_script }}'
+          wsl -d "${{ env.instance }}" -u root -- bash -ec "echo -e '#!/bin/bash\necho Exiting because the profile says so\nexit 0' > ${{ env.profile_script }}"
           wsl -d "${{ env.instance }}" -u root -- chmod '0777' ${{ env.profile_script }}
           wsl -d "${{ env.instance }}" -u root -- cloud-init clean --logs
           wsl --shutdown
