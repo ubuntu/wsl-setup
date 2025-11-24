@@ -146,3 +146,6 @@ fi
 # Set the newly created user as the WSL default.
 username=$(id -un "${user_id}")
 set_user_as_default "${username}"
+
+# Start Ubuntu Insights consent script
+source "${this_dir}/ubuntu-insights"
