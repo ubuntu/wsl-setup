@@ -97,6 +97,22 @@ jobs:
     needs: [build-deb, cache-img]
     name: "Integration tests"
     runs-on: windows-2025 # WSL and winget are preinstalled and working
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu-insights-flag: ["0", "1", "12", "skip"]
+        ubuntu-insights-state: ["false", "true", "null", "skip"]
+        exclude:
+          # Skip combination that would result in an interactive prompt
+          - ubuntu-insights-flag: "skip"
+            ubuntu-insights-state: "null"
+          - ubuntu-insights-flag: "12"
+            ubuntu-insights-state: "null"
+          - ubuntu-insights-flag: "skip"
+            ubuntu-insights-state: "skip"
+          - ubuntu-insights-flag: "12"
+            ubuntu-insights-state: "skip"
+
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v5
@@ -115,6 +131,13 @@ jobs:
             ${{ needs.cache-img.outputs.cache-key }}
           enableCrossOsArchive: true
 
+      - name: Set Ubuntu Insights consent flag
+        if: matrix.ubuntu-insights-flag != 'skip'
+        shell: powershell
+        run: |
+          New-Item -Path "HKCU:\Software\Canonical\Ubuntu" -Force
+          New-ItemProperty -Path "HKCU:\Software\Canonical\Ubuntu" -Name "UbuntuInsightsConsent" -Value "${{ matrix.ubuntu-insights-flag }}" -PropertyType DWord -Force
+
       - name: "Set up a WSL instance from the daily image"
         shell: powershell
         env:
@@ -129,14 +152,18 @@ jobs:
               groups: [adm,dialout,cdrom,floppy,sudo,audio,dip,video,plugdev,netdev]
               sudo: ALL=(ALL) NOPASSWD:ALL
               shell: /bin/bash
+            packages: [hello]
             write_files:
             - path: /etc/wsl.conf
               append: true
               content: |
                 [user]
                 default=u
-            packages: [hello]
         run: |
+          if ("${{ matrix.ubuntu-insights-state }}" -ne "skip") {
+            $env:cloudinit += "`- path: /home/u/.config/ubuntu-insights/consent.toml`n  owner: u:u`n  permissions: 0o755`n  defer: true`n  content: |`n    consent_state = ${{ matrix.ubuntu-insights-state }}"
+          }
+
           # No launch so we can install the deb before running the OOBE
           wsl --install --no-launch --from-file "${{ env.images_dir }}/${{ env.image_name }}" --name "${{ env.instance }}"
           wsl -d "${{ env.instance }}" -u root -- ls -l "./ci-artifacts/wsl-setup_*/"
@@ -190,6 +217,33 @@ jobs:
           working-dir: ${{ env.instance_working_dir }}
           exec: |
             source test/integration-test.sh
+
+      - name: Ubuntu Insights Assertions
+        uses: ubuntu/WSL/.github/actions/wsl-bash@main
+        with:
+          distro: ${{ env.instance }}
+          working-dir: ${{ env.instance_working_dir }}
+          exec: |
+            expected=""
+            state="${{ matrix.ubuntu-insights-state }}"
+            flag="${{ matrix.ubuntu-insights-flag }}"
+
+            if [ "$state" = "true" ] || [ "$state" = "false" ]; then
+              expected="$state"
+            elif [ "$flag" = "1" ]; then
+              expected="true"
+            elif [ "$flag" = "0" ]; then
+              expected="false"
+            else
+              echo "::error:: Failed to determine expected consent value."
+              exit 1
+            fi
+
+            # Check output
+            if ! ubuntu-insights consent | grep -q "Default: $expected"; then
+                echo "::error:: Assertion Failed: Expected 'Default: $expected'"
+                exit 1
+            fi
 
       - name: "Clean up" # Probably not necessary since we're leveraging ephemeral GH's runners.
         if: always()
