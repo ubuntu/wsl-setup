@@ -7,10 +7,6 @@ on:
   push:
     branches: ["main"]
 env:
-  # TODO: Transform this into a matrix
-  architecture: amd64
-  base_url: https://cdimages.ubuntu.com/ubuntu-wsl/daily-live/current
-  images_dir: images
   instance: Ubuntu-${{ github.run_id }}
   profile_script: /etc/profile.d/99-quit-wsl.sh
   instance_working_dir: ~/wsl-setup-${{ github.run_id }}
@@ -21,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Build deb
         uses: canonical/desktop-engineering/gh-actions/common/build-debian@main
         with:
@@ -31,67 +27,13 @@ jobs:
   cache-img:
     name: Cache the daily-live image
     runs-on: ubuntu-latest
-    outputs:
-      cache-key: ${{ steps.compute-cache-key.outputs.cache-key }}
-      cache-image-name: ${{ steps.compute-cache-key.outputs.cache-image-name }}
     steps:
-      - name: Compute image cache key
-        id: compute-cache-key
-        shell: bash
-        run: |
-          set -eu
-
-          shafile="SHA256SUMS"
-          uri="${{ env.base_url }}/${shafile}"
-          if ! curl -o "${shafile}" "${uri}"; then
-            echo "::error:: Failed to download the checksum file from $uri."
-            exit 1
-          fi
-
-          line=$(grep -E "^[a-f0-9]+ \*.+-${{ env.architecture }}.wsl$" "${shafile}")
-          if [ -z "${line}" ]; then
-            echo "::error:: Couldn't find checksum of an ${{ env.architecture }} image in ${shafile}."
-            exit 2
-          fi
-
-          # If a line matches, then awk extracts the first field: the checksum.
-          key=$(awk '{print $1}' <<< "${line}")
-          if [ -z "$key" ]; then
-            echo "::error:: Checksum for '${image_name}' not found in the $shafile file."
-            exit 3
-          fi
-
-          # awk substr skipping the first character (the asterisk)
-          image_name=$(awk '{print substr($2, 2)}' <<< "${line}")
-          if [ -z "${image_name}" ]; then
-            echo "::error:: Image name not found."
-            exit 4
-          fi
-
-          echo "cache-key=$key" >> "$GITHUB_OUTPUT"
-          echo "cache-image-name=$image_name" >> "$GITHUB_OUTPUT"
-
-      - name: Check image cache first
-        id: cache
-        uses: actions/cache@v4
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Get WSL Image
+        uses: ./.github/actions/get-wsl-image
         with:
-          path: ${{ env.images_dir }}
-          key: ${{ steps.compute-cache-key.outputs.cache-key }}
-          enableCrossOsArchive: true
-
-      - name: Download a daily-live image
-        if: steps.cache.outputs.cache-hit != 'true'
-        shell: bash
-        env:
-          image_name: ${{ steps.compute-cache-key.outputs.cache-image-name }}
-        run: |
-          set -eu
-
-          mkdir -p "${{ env.images_dir }}"
-          if ! curl -o "${{ env.images_dir }}/${image_name}" "${{ env.base_url }}/${image_name}"; then
-            echo "::error:: Failed to download the image from ${{ env.base_url }}/${image_name}'."
-            exit 1
-          fi
+          output_path: images.wsl
 
   test-wsl-setup:
     needs: [build-deb, cache-img]
@@ -114,6 +56,9 @@ jobs:
             ubuntu-insights-state: "skip"
 
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
       - name: Download artifacts
         uses: actions/download-artifact@v5
         with:
@@ -121,15 +66,10 @@ jobs:
           # name: is left blank so that all artifacts are downloaded, thus we don't couple on
           # whatever name was chosen in the build-debian action.
 
-      - name: Fetch the image from cache
-        id: cache
-        uses: actions/cache@v4
+      - name: Get WSL Image
+        uses: ./.github/actions/get-wsl-image
         with:
-          path: ${{ env.images_dir }}
-          key: ${{ needs.cache-img.outputs.cache-key }}
-          restore-keys: |
-            ${{ needs.cache-img.outputs.cache-key }}
-          enableCrossOsArchive: true
+          output_path: images.wsl
 
       - name: Set Ubuntu Insights consent flag
         if: matrix.ubuntu-insights-flag != 'skip'
@@ -141,7 +81,6 @@ jobs:
       - name: "Set up a WSL instance from the daily image"
         shell: powershell
         env:
-          image_name: ${{ needs.cache-img.outputs.cache-image-name }}
           WSL_UTF8: "1" # Recommended otherwise it's hard to read wsl output on Github
           # Just to skip the interactive session
           cloudinit: |
@@ -165,7 +104,7 @@ jobs:
           }
 
           # No launch so we can install the deb before running the OOBE
-          wsl --install --no-launch --from-file "${{ env.images_dir }}/${{ env.image_name }}" --name "${{ env.instance }}"
+          wsl --install --no-launch --from-file "images.wsl" --name "${{ env.instance }}"
           wsl -d "${{ env.instance }}" -u root -- ls -l "./ci-artifacts/wsl-setup_*/"
           wsl -d "${{ env.instance }}" -u root -- dpkg -i "./ci-artifacts/wsl-setup_*/wsl-setup_*.deb"
 
