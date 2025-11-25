@@ -35,9 +35,9 @@ jobs:
         with:
           output_path: images.wsl
 
-  test-wsl-setup:
+  cloud-init-test:
     needs: [build-deb, cache-img]
-    name: "Integration tests"
+    name: "Cloud-init tests"
     runs-on: windows-2025 # WSL and winget are preinstalled and working
     strategy:
       fail-fast: false
@@ -45,7 +45,7 @@ jobs:
         ubuntu-insights-flag: ["0", "1", "12", "skip"]
         ubuntu-insights-state: ["false", "true", "null", "skip"]
         exclude:
-          # Skip combination that would result in an interactive prompt
+          # Skip combinations that would result in an interactive prompt
           - ubuntu-insights-flag: "skip"
             ubuntu-insights-state: "null"
           - ubuntu-insights-flag: "12"
@@ -132,56 +132,49 @@ jobs:
         shell: powershell
         run: |
           wsl -d "${{ env.instance }}" # Will run the wsl-setup script.
-          if (!(Test-Path -Path "${env:LocalAppData}\Microsoft\Windows\Fonts\Ubuntu*.ttf")) {
-            Write-Error "Ubuntu font was not installed as expected"
-            Exit 1
-          }
-          if (!(Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts\" -Name "Ubuntu*" )) {
-            Write-Error "Ubuntu font was not registered"
-            Exit 2
-          }
+
           wsl -d "${{ env.instance }}" -u root -- bash -ec "rm ${{ env.profile_script }} || true"
           wsl -d "${{ env.instance }}" -u root -- bash -ec "cat /var/log/cloud-init.log || true"
           wsl --terminate ${{ env.instance }}
 
-      - uses: ubuntu/WSL/.github/actions/wsl-checkout@main
-        with:
-          distro: ${{ env.instance }}
-          working-dir: ${{ env.instance_working_dir }}
+      - name: Determine expected consent state
+        id: expected-consent
+        shell: powershell
+        run: |
+          $state = "${{ matrix.ubuntu-insights-state }}"
+          $flag  = "${{ matrix.ubuntu-insights-flag }}"
 
-      - name: Assertions on the new instance
+          if ($state -eq "true" -or $state -eq "false") {
+              $expected = $state
+          } elseif ($flag -eq "1") {
+              $expected = "true"
+          } elseif ($flag -eq "0") {
+              $expected = "false"
+          } else {
+              Write-Error "Internal test setup error: invalid state='$state' and flag='$flag'. Expected state to be 'true' or 'false', or flag to be '0' or '1'."
+              Exit 1
+          }
+
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "expected=$expected"
+
+      - name: Validate instance state
+        uses: ./.github/actions/validate-wsl
+        with:
+          instance: ${{ env.instance }}
+          working-dir: ${{ env.instance_working_dir }}
+          expected-user: u
+          expected-internal-consent-state: ${{ steps.expected-consent.outputs.expected }}
+          expected-registry-consent-state: ${{ matrix.ubuntu-insights-flag }}
+
+      - name: "Run hello package"
         uses: ubuntu/WSL/.github/actions/wsl-bash@main
         with:
           distro: ${{ env.instance }}
           working-dir: ${{ env.instance_working_dir }}
           exec: |
-            source test/integration-test.sh
-
-      - name: Ubuntu Insights Assertions
-        uses: ubuntu/WSL/.github/actions/wsl-bash@main
-        with:
-          distro: ${{ env.instance }}
-          working-dir: ${{ env.instance_working_dir }}
-          exec: |
-            expected=""
-            state="${{ matrix.ubuntu-insights-state }}"
-            flag="${{ matrix.ubuntu-insights-flag }}"
-
-            if [ "$state" = "true" ] || [ "$state" = "false" ]; then
-              expected="$state"
-            elif [ "$flag" = "1" ]; then
-              expected="true"
-            elif [ "$flag" = "0" ]; then
-              expected="false"
-            else
-              echo "::error:: Failed to determine expected consent value."
+            if ! hello; then
+              echo "::error:: Failed to execute the hello program that should have been installed by cloud-init"
               exit 1
-            fi
-
-            # Check output
-            if ! ubuntu-insights consent | grep -q "Default: $expected"; then
-                echo "::error:: Assertion Failed: Expected 'Default: $expected'"
-                exit 1
             fi
 
       - name: "Clean up" # Probably not necessary since we're leveraging ephemeral GH's runners.
