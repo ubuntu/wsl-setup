@@ -110,7 +110,7 @@ function install_ubuntu_font() {
   powershell.exe -NoProfile -Command '& {
               $null = New-Item -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion" -Name "Fonts" 2>$null;
               $null = New-ItemProperty -Name "Ubuntu Mono (TrueType)" -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts" -PropertyType string -Value "'"${dst}"'" 2>$null;
-  }' || true
+  }' >/dev/null || true
 }
 
 
