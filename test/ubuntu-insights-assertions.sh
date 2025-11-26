@@ -6,9 +6,14 @@
 
 EXPECTED_CONSENT=${1}
 
+if [[ "$EXPECTED_CONSENT" != "true" && "$EXPECTED_CONSENT" != "false" ]]; then
+    echo "::error:: Expected first argument to be 'true' or 'false', got '$EXPECTED_CONSENT'"
+    exit 1
+fi
+
 if ! ubuntu-insights consent | grep -q "Default: $EXPECTED_CONSENT"; then
-                echo "::error:: Ubuntu-Insights Consent state assertion: Expected 'Default: $EXPECTED_CONSENT'"
-                exit 1
+    echo "::error:: Ubuntu-Insights Consent state assertion: Expected 'Default: $EXPECTED_CONSENT'"
+    exit 1
 fi
 
 # Verify that a report was created for the wsl_setup source.

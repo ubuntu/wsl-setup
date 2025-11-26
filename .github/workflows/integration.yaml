@@ -147,15 +147,15 @@ jobs:
           $flag  = "${{ matrix.ubuntu-insights-flag }}"
 
           if ($state -eq "true" -or $state -eq "false") {
-          $expected = $state
-            } elseif ($flag -eq "1") {
-          $expected = "true"
-            } elseif ($flag -eq "0") {
-          $expected = "false"
-            } else {
-          Write-Error "Internal test setup error: invalid state='$state' and flag='$flag'. Expected state to be 'true' or 'false', or flag to be '0' or '1'."
-          Exit 1
-            }
+              $expected = $state
+          } elseif ($flag -eq "1") {
+              $expected = "true"
+          } elseif ($flag -eq "0") {
+              $expected = "false"
+          } else {
+              Write-Error "Internal test setup error: invalid state='$state' and flag='$flag'. Expected state to be 'true' or 'false', or flag to be '0' or '1'."
+              Exit 1
+          }
 
           Add-Content -Path $env:GITHUB_OUTPUT -Value "expected=$expected"
 
