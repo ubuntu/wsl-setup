@@ -148,4 +148,4 @@ username=$(id -un "${user_id}")
 set_user_as_default "${username}"
 
 # Start Ubuntu Insights consent script
-source "${this_dir}/ubuntu-insights"
+"${this_dir}/ubuntu-insights"
