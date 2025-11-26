@@ -10,7 +10,7 @@ registry_key_path="HKCU:\Software\Canonical\Ubuntu"
 registry_value_name="UbuntuInsightsConsent"
 
 # List of regular users
-users=$(getent passwd | grep -Ev '/nologin|/false|/sync' | awk -F: '$3 >= 1000 { print $1 }')
+readarray -t users < <(getent passwd | grep -Ev '/nologin|/false|/sync' | awk -F: '$3 >= 1000 { print $1 }')
 
 function askQuestion() {
     # Only ask if we are in an interactive terminal
@@ -44,52 +44,47 @@ function askQuestion() {
 function apply_consent() {
     local consent="$1"
 
-    for user in $users; do
-        for source in "${sources[@]}"; do
-            cmd="ubuntu-insights consent"
+    for user in "${users[@]}"; do
+        for source in "${sources[@]}"; do  
             if [ -n "$source" ]; then
-                cmd="$cmd \"$source\""
-            fi
-
-            if [ "$consent" -eq 1 ]; then
-                cmd="$cmd -s=true"
+                su "$user" -c 'ubuntu-insights consent "$0" -s="$1" > /dev/null' -- "$source" "$([[ $consent -eq 1 ]] && echo true || echo false)"
             else
-                cmd="$cmd -s=false"
-            fi
-
-            su "$user" -c "$cmd > /dev/null"
-        done
+                su "$user" -c 'ubuntu-insights consent -s="$0" > /dev/null' -- "$([[ $consent -eq 1 ]] && echo true || echo false)"
+            fi  
+        done  
     done
 }
 
 function read_consent_registry() {
     local consent_value=""
-    consent_value=$(powershell.exe -NoProfile -Command '& {
+    consent_value=$(powershell.exe -NoProfile -Command "& {
+        param(\$Path, \$Name)
         [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-        try {
-                return (Get-ItemProperty -Path '"${registry_key_path}"' -Name '"${registry_value_name}"' -ErrorAction Stop).'"${registry_value_name}"'
+        try {  
+            return (Get-ItemProperty -Path \$Path -Name \$Name -ErrorAction Stop).\$Name
         }
         catch {
-            return ""
+            return \"\"
         }
-    }') 2>/dev/null || true
+    }" -Path "${registry_key_path}" -Name "${registry_value_name}" 2>/dev/null) || true
     # strip control chars like \r and \n
-    echo "${consent_value%%[[:cntrl:]]}"
+    echo "${consent_value//[[:cntrl:]]/}"
 }
 
 function set_consent_registry() {
     local consent="$1"
-    powershell.exe -NoProfile -Command '& {
-        if (-not (Test-Path -Path '"${registry_key_path}"')) {
-            New-Item -Path '"${registry_key_path}"' -Force | Out-Null
+    powershell.exe -NoProfile -Command "& {
+        param(\$Path, \$Name, \$Consent)
+        if (-not (Test-Path -Path \$Path)) {
+            New-Item -Path \$Path -Force | Out-Null
         }
-        New-ItemProperty -Path '"${registry_key_path}"' -Name '"${registry_value_name}"' -Value '"${consent}"' -PropertyType DWord -Force
-    }' 2>/dev/null || true
+        New-ItemProperty -Path \$Path -Name \$Name -Value \$Consent -PropertyType DWord -Force
+    }" -Path "${registry_key_path}" -Name "${registry_value_name}" -Consent "${consent}" 2>/dev/null || true
 }
 
 function check_local_consent() {
     # If any of the users has default consent set, we consider that consent is set locally
-    for user in $users; do
+    for user in "${users[@]}"; do
         # Check default, if exit code is 0, consent is set
         if su "$user" -c 'ubuntu-insights consent' > /dev/null 2>&1; then
             return 0
@@ -100,15 +95,20 @@ function check_local_consent() {
 
 function collect() {
     # Collect insights and upload in background for all users
-    for user in $users; do
-        if su "$user" -c "ubuntu-insights collect wsl_setup <(echo '{}') -f > /dev/null 2>&1"; then
-            su "$user" -c "nohup ubuntu-insights upload wsl_setup -rf > /dev/null 2>&1 &"
+    for user in "${users[@]}"; do
+        if su "$user" -c 'echo "{}" | ubuntu-insights collect wsl_setup /dev/stdin -f > /dev/null 2>&1'; then
+            su "$user" -c 'nohup ubuntu-insights upload wsl_setup -rf > /dev/null 2>&1 &'
         fi
     done
 }
 
 # Check if ubuntu-insights is installed
 if ! command -v ubuntu-insights >/dev/null 2>&1; then
+    return 0 2>/dev/null || exit 0
+fi
+
+# Skip if no users found
+if [ "${#users[@]}" -eq 0 ]; then
     return 0 2>/dev/null || exit 0
 fi
 
