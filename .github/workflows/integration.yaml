@@ -102,7 +102,7 @@ jobs:
                 default=u
         run: |
           if ("${{ matrix.ubuntu-insights-state }}" -ne "skip") {
-            $env:cloudinit += "`- path: /home/u/.config/ubuntu-insights/consent.toml`n  owner: u:u`n  permissions: 0o755`n  defer: true`n  content: |`n    consent_state = ${{ matrix.ubuntu-insights-state }}"
+            $env:cloudinit += "`- path: /home/u/.config/ubuntu-insights/consent.toml`n  owner: u:u`n  permissions: '0755'`n  defer: true`n  content: |`n    consent_state = ${{ matrix.ubuntu-insights-state }}"
           }
 
           # No launch so we can install the deb before running the OOBE
