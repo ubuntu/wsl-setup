@@ -34,11 +34,10 @@ runs:
 
         shafile="${{ runner.temp }}/SHA256SUMS"
         uri="${{ inputs.base_url }}/SHA256SUMS"
-        curl --fail -o "$shafile" "${uri}"
-        if [ $? -ne 0 ]; then
-          echo "::error:: Failed to download the checksum file from $uri."
-          exit 1
-        fi
+        if ! curl --fail -o "$shafile" "${uri}"; then  
+            echo "::error:: Failed to download the checksum file from $uri."  
+            exit 1  
+        fi  
 
         # Look for a line matching the pattern: <sha> *<name>-wsl-<arch>.wsl
         arch="${{ inputs.arch }}"
@@ -102,10 +101,9 @@ runs:
         set -euo pipefail
 
         uri="${{ inputs.base_url }}/${{ steps.compute-cache-key.outputs.image-name }}"
-        curl --fail -o "${{ inputs.output_path }}" "$uri"
-        if [ $? -ne 0 ]; then
-          echo "::error:: Failed to download the WSL image from $uri"
-          exit 1
+        if ! curl --fail -o "${{ inputs.output_path }}" "$uri"; then
+            echo "::error:: Failed to download the WSL image from $uri"
+            exit 1
         fi
 
     - name: Save image to cache
