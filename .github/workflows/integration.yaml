@@ -10,6 +10,8 @@ env:
   instance: Ubuntu-${{ github.run_id }}
   profile_script: /etc/profile.d/99-quit-wsl.sh
   instance_working_dir: ~/wsl-setup-${{ github.run_id }}
+  insights_registry_key_path: "HKCU:\\Software\\Canonical\\Ubuntu"
+  insights_registry_value_name: "UbuntuInsightsConsent"
 
 jobs:
   build-deb:
@@ -66,19 +68,19 @@ jobs:
           # name: is left blank so that all artifacts are downloaded, thus we don't couple on
           # whatever name was chosen in the build-debian action.
 
-      - name: Get WSL Image
+      - name: Get WSL image
         uses: ./.github/actions/get-wsl-image
         with:
           output_path: images.wsl
 
-      - name: Set Ubuntu Insights consent flag
+      - name: Prepare Ubuntu Insights consent registry key
         if: matrix.ubuntu-insights-flag != 'skip'
         shell: powershell
         run: |
-          New-Item -Path "HKCU:\Software\Canonical\Ubuntu" -Force
-          New-ItemProperty -Path "HKCU:\Software\Canonical\Ubuntu" -Name "UbuntuInsightsConsent" -Value "${{ matrix.ubuntu-insights-flag }}" -PropertyType DWord -Force
+          New-Item -Path "${{ env.insights_registry_key_path }}" -Force
+          New-ItemProperty -Path "${{ env.insights_registry_key_path }}" -Name "${{ env.insights_registry_value_name }}" -Value "${{ matrix.ubuntu-insights-flag }}" -PropertyType DWord -Force
 
-      - name: "Set up a WSL instance from the daily image"
+      - name: Prepare WSL instance and cloud-init
         shell: powershell
         env:
           WSL_UTF8: "1" # Recommended otherwise it's hard to read wsl output on Github
@@ -100,7 +102,7 @@ jobs:
                 default=u
         run: |
           if ("${{ matrix.ubuntu-insights-state }}" -ne "skip") {
-            $env:cloudinit += "`- path: /home/u/.config/ubuntu-insights/consent.toml`n  owner: u:u`n  permissions: 0o755`n  defer: true`n  content: |`n    consent_state = ${{ matrix.ubuntu-insights-state }}"
+            $env:cloudinit += "`- path: /home/u/.config/ubuntu-insights/consent.toml`n  owner: u:u`n  permissions: '0755'`n  defer: true`n  content: |`n    consent_state = ${{ matrix.ubuntu-insights-state }}"
           }
 
           # No launch so we can install the deb before running the OOBE
@@ -166,7 +168,7 @@ jobs:
           expected-internal-consent-state: ${{ steps.expected-consent.outputs.expected }}
           expected-registry-consent-state: ${{ matrix.ubuntu-insights-flag }}
 
-      - name: "Run hello package"
+      - name: Run hello package
         uses: ubuntu/WSL/.github/actions/wsl-bash@main
         with:
           distro: ${{ env.instance }}
@@ -177,7 +179,180 @@ jobs:
               exit 1
             fi
 
-      - name: "Clean up" # Probably not necessary since we're leveraging ephemeral GH's runners.
+      - name: Clean up # Probably not necessary since we're leveraging ephemeral GH's runners.
+        if: always()
+        shell: powershell
+        run: |
+          wsl --unregister ${{ env.instance }}
+
+  interactive-test:
+    needs: [build-deb, cache-img]
+    name: "Interactive Expect tests"
+    runs-on: windows-2025 # WSL and winget are preinstalled and working
+    env:
+      username: test-ubuntu-user
+      password: TestPass123!
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Basic interactive consent
+          - consent: "default"
+            consent-registry-flag: "skip"
+            config-state: "skip"
+          - consent: "yes"
+            consent-registry-flag: "skip"
+            config-state: "skip"
+          - consent: "no"
+            consent-registry-flag: "skip"
+            config-state: "skip"
+          # Handle null states
+          - consent: "yes"
+            consent-registry-flag: "123"
+            config-state: "null"
+          # Config state takes precedence over registry flag
+          - consent: "skip"
+            consent-registry-flag: "1"
+            config-state: "false"
+          - consent: "skip"
+            consent-registry-flag: "0"
+            config-state: "true"
+          # Registry flag takes precedence over interactive prompt
+          - consent: "skip"
+            consent-registry-flag: "1"
+            config-state: "skip"
+          - consent: "skip"
+            consent-registry-flag: "0"
+            config-state: "null"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: ci-artifacts
+
+      - name: Get WSL image
+        uses: ./.github/actions/get-wsl-image
+        with:
+          output_path: images.wsl
+
+      - name: Prepare Ubuntu Insights consent registry key
+        if: matrix.consent-registry-flag != 'skip'
+        shell: powershell
+        run: |
+          New-Item -Path "${{ env.insights_registry_key_path }}" -Force
+          New-ItemProperty -Path "${{ env.insights_registry_key_path }}" -Name "${{ env.insights_registry_value_name }}" -Value "${{ matrix.consent-registry-flag }}" -PropertyType DWord -Force
+
+      - name: Install WSL instance
+        shell: powershell
+        env:
+          WSL_UTF8: "1"
+        run: |
+          wsl --install --no-launch --from-file "images.wsl" --name "${{ env.instance }}"
+
+      - name: Install wsl-setup and test dependencies
+        shell: powershell
+        env:
+          WSL_UTF8: "1"
+        run: |
+          # Install the deb package
+          wsl -d "${{ env.instance }}" -u root -- dpkg -i "./ci-artifacts/wsl-setup_*/wsl-setup_*.deb"
+          # Install expect
+          wsl -d "${{ env.instance }}" -u root -- apt-get update
+          wsl -d "${{ env.instance }}" -u root -- apt-get install -y expect
+
+      - name: Configure consent file
+        if: matrix.config-state != 'skip'
+        shell: powershell
+        env:
+          WSL_UTF8: "1"
+        run: |
+          $configContent = "consent_state = ${{ matrix.config-state }}"
+          wsl -d "${{ env.instance }}" -u root -- bash -c "mkdir -p /etc/skel/.config/ubuntu-insights"
+          wsl -d "${{ env.instance }}" -u root -- bash -c "echo '$configContent' > /etc/skel/.config/ubuntu-insights/consent.toml"
+
+      - name: Reset WSL instance state
+        shell: powershell
+        env:
+          WSL_UTF8: "1"
+        run: |
+          wsl -d "${{ env.instance }}" -u root -- cloud-init status --wait
+          wsl -d "${{ env.instance }}" -u root -- bash -ec "rm /etc/cloud/cloud-init.disabled || true"
+          wsl -d "${{ env.instance }}" -u root -- cloud-init clean --logs
+          wsl --shutdown
+
+      - name: Run expect test
+        shell: powershell
+        env:
+          WSL_UTF8: "1"
+        timeout-minutes: 10
+        run: |
+          # Copy expect script to instance
+          Get-Content "test/e2e/setup.expect" -Encoding UTF8 | wsl -d "${{ env.instance }}" -u root -- bash -c "cat > /tmp/setup.expect"
+
+          # Run the expect script
+          wsl -d "${{ env.instance }}" -u root -- expect /tmp/setup.expect "${{ env.username }}" "${{ env.password }}" "${{ matrix.consent }}"
+
+      - name: Determine expected consent state
+        id: expected-consent
+        shell: powershell
+        run: |
+          $configState = "${{ matrix.config-state }}"
+          $registryFlag = "${{ matrix.consent-registry-flag }}"
+          $interactiveConsent = "${{ matrix.consent }}"
+
+          $expectedInternal = ""
+          $expectedRegistry = ""
+
+          # 1. Local Config
+          if ($configState -ne "skip" -and $configState -ne "null") {
+              $expectedInternal = $configState
+              # Registry is not touched by script if local config exists.
+              # So expected registry is whatever we started with.
+              $expectedRegistry = $registryFlag
+          }
+          # 2. Registry (Valid values only)
+          elseif ($registryFlag -eq "1") {
+              $expectedInternal = "true"
+              $expectedRegistry = "1"
+          }
+          elseif ($registryFlag -eq "0") {
+              $expectedInternal = "false"
+              $expectedRegistry = "0"
+          }
+          # 3. Interactive (Fallback)
+          else {
+              if ($interactiveConsent -eq "yes" -or $interactiveConsent -eq "default") {
+                  $expectedInternal = "true"
+                  $expectedRegistry = "1"
+              }
+              elseif ($interactiveConsent -eq "no") {
+                  $expectedInternal = "false"
+                  $expectedRegistry = "0"
+              }
+          }
+
+          if ($expectedInternal -eq "") {
+              Write-Error "::error:: Could not determine expected consent state."
+              exit 1
+          }
+
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "expected-internal=$expectedInternal"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "expected-registry=$expectedRegistry"
+
+      - name: Validate instance state
+        uses: ./.github/actions/validate-wsl
+        with:
+          instance: ${{ env.instance }}
+          working-dir: ${{ env.instance_working_dir }}
+          expected-user: ${{ env.username }}
+          expected-internal-consent-state: ${{ steps.expected-consent.outputs.expected-internal }}
+          expected-registry-consent-state: ${{ steps.expected-consent.outputs.expected-registry }}
+
+      - name: Clean up # Probably not necessary since we're leveraging ephemeral GH's runners.
         if: always()
         shell: powershell
         run: |

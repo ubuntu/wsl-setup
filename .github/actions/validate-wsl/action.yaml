@@ -83,13 +83,13 @@ runs:
     - name: Run registry insights consent assertions
       shell: powershell
       run: |
-        $key_path = "HKCU:\Software\Canonical\Ubuntu\"
-        $key_name = "UbuntuInsightsConsent"
+        $registry_key_path = "HKCU:\Software\Canonical\Ubuntu\"
+        $registry_value_name = "UbuntuInsightsConsent"
 
         if ("${{ inputs.expected-registry-consent-state }}" -eq "skip") {
           # Expect the registry key to not exist
           try {
-            $reg = Get-ItemProperty -Path $key_path -Name $key_name -ErrorAction Stop
+            $reg = Get-ItemProperty -Path $registry_key_path -Name $registry_value_name -ErrorAction Stop
             Write-Error "::error:: Ubuntu Insights registry key was found but was not expected"
             Exit 1
           } catch {
@@ -99,7 +99,7 @@ runs:
         }
 
         try {
-          $reg = Get-ItemProperty -Path $key_path -Name $key_name -ErrorAction Stop
+          $reg = Get-ItemProperty -Path $registry_key_path -Name $registry_value_name -ErrorAction Stop
         } catch {
           Write-Error "::error:: Ubuntu Insights registry key not found"
           Exit 1
