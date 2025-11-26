@@ -1,6 +1,6 @@
 #!/usr/bin/expect -f
 
-set timeout 480
+set timeout 240
 
 set username [lindex $argv 0]
 set password [lindex $argv 1]
@@ -76,11 +76,11 @@ if {$consent == "skip"} {
     }
 } else {
     expect {
-        "Would you like to opt-in to platform metrics collection (Y/n)? To see an example of the data collected, enter 'e'." {
+        "\\\[Y/n/e\\\]: " {
             if {$consent == "default"} {
                 send "\r"
             } else {
-                # Send Ctrl-U to clear the pre-filled default username
+                # Send Ctrl-U to clear the pre-filled default consent value
                 send "\025"
 
                 if {$consent == "yes"} {
