@@ -1,3 +1,9 @@
+wsl-setup (0.6.0) resolute; urgency=medium
+
+  * Add ubuntu-insights integration
+
+ -- Kat Kuo <kat.kuo@canonical.com>  Tue, 25 Nov 2025 19:56:56 -0500
+
 wsl-setup (0.5.11) questing; urgency=medium
 
   * Case-fold the Windows username before sanitization (LP: #2122047)

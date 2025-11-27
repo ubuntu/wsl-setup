@@ -19,5 +19,6 @@ Depends: adduser,
          systemd,
          ${shlibs:Depends},
          ${misc:Depends},
+Recommends: ubuntu-insights,
 Description: ${source:Synopsis}
  ${source:Extended-Description}
