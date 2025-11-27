@@ -8,23 +8,23 @@ EXPECTED_USER=${1:-u}
 
 brandingdir="/usr/share/wsl"
 if [[ ! -r "${brandingdir}/ubuntu.ico" ]]; then
-  echo "::error:: Missing Ubuntu icon in the $brandingdir directory."
-  ls "${brandingdir}"
-  exit 1
+	echo "::error:: Missing Ubuntu icon in the $brandingdir directory."
+	ls "${brandingdir}"
+	exit 1
 fi
 
 if [[ ! -r "${brandingdir}/terminal-profile.json" ]]; then
-  echo "::error:: Missing terminal profile fragment in the $brandingdir directory."
-  ls "${brandingdir}"
-  exit 2
+	echo "::error:: Missing terminal profile fragment in the $brandingdir directory."
+	ls "${brandingdir}"
+	exit 2
 fi
 
 if [[ $(id -u) == 0 ]]; then
-  echo "::error:: Default user shouldn't be root"
-  exit 3
+	echo "::error:: Default user shouldn't be root"
+	exit 3
 fi
 
 if [[ $(whoami) != "$EXPECTED_USER" ]]; then
-  echo "::error:: Default user doesn't match expected user '$EXPECTED_USER'."
-  exit 4
+	echo "::error:: Default user doesn't match expected user '$EXPECTED_USER'."
+	exit 4
 fi
