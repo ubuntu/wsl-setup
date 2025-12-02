@@ -4,7 +4,7 @@
 # If no consent is found, it prompts the user for consent.
 set -euo pipefail
 
-sources=("" "linux" "wsl_setup" "ubuntu_release_upgrader")
+sources=("linux" "wsl_setup" "ubuntu_release_upgrader")
 
 registry_key_path="HKCU:\Software\Canonical\Ubuntu"
 registry_value_name="UbuntuInsightsConsent"
@@ -47,11 +47,7 @@ function apply_consent() {
 
 	for user in "${users[@]}"; do
 		for source in "${sources[@]}"; do
-			if [ -n "$source" ]; then
-				su "$user" -c 'ubuntu-insights consent "$0" -s="$1" > /dev/null' -- "$source" "$([[ $consent -eq 1 ]] && echo true || echo false)"
-			else
-				su "$user" -c 'ubuntu-insights consent -s="$0" > /dev/null' -- "$([[ $consent -eq 1 ]] && echo true || echo false)"
-			fi
+			su "$user" -c 'ubuntu-insights consent "$0" -s="$1" > /dev/null' -- "$source" "$([[ $consent -eq 1 ]] && echo true || echo false)"
 		done
 	done
 }
@@ -84,10 +80,10 @@ function set_consent_registry() {
 }
 
 function check_local_consent() {
-	# If any of the users has default consent set, we consider that consent is set locally
+	# If any of the users has the wsl_setup consent set, we consider that consent is set locally
 	for user in "${users[@]}"; do
-		# Check default, if exit code is 0, consent is set
-		if su "$user" -c 'ubuntu-insights consent' >/dev/null 2>&1; then
+		# Check wsl_setup source, if exit code is 0, consent is set
+		if su "$user" -c 'ubuntu-insights consent wsl_setup' >/dev/null 2>&1; then
 			return 0
 		fi
 	done

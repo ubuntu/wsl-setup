@@ -11,8 +11,8 @@ if [[ "$EXPECTED_CONSENT" != "true" && "$EXPECTED_CONSENT" != "false" ]]; then
 	exit 1
 fi
 
-if ! ubuntu-insights consent | grep -q "Default: $EXPECTED_CONSENT"; then
-	echo "::error:: Ubuntu-Insights Consent state assertion: Expected 'Default: $EXPECTED_CONSENT'"
+if ! ubuntu-insights consent wsl_setup | grep -q "wsl_setup: $EXPECTED_CONSENT"; then
+	echo "::error:: Ubuntu-Insights Consent state assertion: Expected 'wsl_setup: $EXPECTED_CONSENT'"
 	exit 1
 fi
 

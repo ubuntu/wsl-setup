@@ -102,7 +102,7 @@ jobs:
                 default=u
         run: |
           if ("${{ matrix.ubuntu-insights-state }}" -ne "skip") {
-            $env:cloudinit += "`- path: /home/u/.config/ubuntu-insights/consent.toml`n  owner: u:u`n  permissions: '0755'`n  defer: true`n  content: |`n    consent_state = ${{ matrix.ubuntu-insights-state }}"
+            $env:cloudinit += "`- path: /home/u/.config/ubuntu-insights/wsl_setup-consent.toml`n  owner: u:u`n  permissions: '0755'`n  defer: true`n  content: |`n    consent_state = ${{ matrix.ubuntu-insights-state }}"
           }
 
           # No launch so we can install the deb before running the OOBE
@@ -288,7 +288,7 @@ jobs:
         run: |
           $configContent = "consent_state = ${{ matrix.config-state }}"
           wsl -d "${{ env.instance }}" -u root -- bash -c "mkdir -p /etc/skel/.config/ubuntu-insights"
-          wsl -d "${{ env.instance }}" -u root -- bash -c "echo '$configContent' > /etc/skel/.config/ubuntu-insights/consent.toml"
+          wsl -d "${{ env.instance }}" -u root -- bash -c "echo '$configContent' > /etc/skel/.config/ubuntu-insights/wsl_setup-consent.toml"
 
       - name: Reset WSL instance state
         shell: powershell
