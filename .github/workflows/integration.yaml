@@ -7,13 +7,11 @@ on:
   push:
     branches: ["main"]
 env:
-  # TODO: Transform this into a matrix
-  architecture: amd64
-  base_url: https://cdimages.ubuntu.com/ubuntu-wsl/daily-live/current
-  images_dir: images
   instance: Ubuntu-${{ github.run_id }}
   profile_script: /etc/profile.d/99-quit-wsl.sh
   instance_working_dir: ~/wsl-setup-${{ github.run_id }}
+  insights_registry_key_path: "HKCU:\\Software\\Canonical\\Ubuntu"
+  insights_registry_value_name: "UbuntuInsightsConsent"
 
 jobs:
   build-deb:
@@ -21,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Build deb
         uses: canonical/desktop-engineering/gh-actions/common/build-debian@main
         with:
@@ -31,73 +29,38 @@ jobs:
   cache-img:
     name: Cache the daily-live image
     runs-on: ubuntu-latest
-    outputs:
-      cache-key: ${{ steps.compute-cache-key.outputs.cache-key }}
-      cache-image-name: ${{ steps.compute-cache-key.outputs.cache-image-name }}
     steps:
-      - name: Compute image cache key
-        id: compute-cache-key
-        shell: bash
-        run: |
-          set -eu
-
-          shafile="SHA256SUMS"
-          uri="${{ env.base_url }}/${shafile}"
-          if ! curl -o "${shafile}" "${uri}"; then
-            echo "::error:: Failed to download the checksum file from $uri."
-            exit 1
-          fi
-
-          line=$(grep -E "^[a-f0-9]+ \*.+-${{ env.architecture }}.wsl$" "${shafile}")
-          if [ -z "${line}" ]; then
-            echo "::error:: Couldn't find checksum of an ${{ env.architecture }} image in ${shafile}."
-            exit 2
-          fi
-
-          # If a line matches, then awk extracts the first field: the checksum.
-          key=$(awk '{print $1}' <<< "${line}")
-          if [ -z "$key" ]; then
-            echo "::error:: Checksum for '${image_name}' not found in the $shafile file."
-            exit 3
-          fi
-
-          # awk substr skipping the first character (the asterisk)
-          image_name=$(awk '{print substr($2, 2)}' <<< "${line}")
-          if [ -z "${image_name}" ]; then
-            echo "::error:: Image name not found."
-            exit 4
-          fi
-
-          echo "cache-key=$key" >> "$GITHUB_OUTPUT"
-          echo "cache-image-name=$image_name" >> "$GITHUB_OUTPUT"
-
-      - name: Check image cache first
-        id: cache
-        uses: actions/cache@v4
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Get WSL Image
+        uses: ./.github/actions/get-wsl-image
         with:
-          path: ${{ env.images_dir }}
-          key: ${{ steps.compute-cache-key.outputs.cache-key }}
-          enableCrossOsArchive: true
+          output_path: images.wsl
 
-      - name: Download a daily-live image
-        if: steps.cache.outputs.cache-hit != 'true'
-        shell: bash
-        env:
-          image_name: ${{ steps.compute-cache-key.outputs.cache-image-name }}
-        run: |
-          set -eu
-
-          mkdir -p "${{ env.images_dir }}"
-          if ! curl -o "${{ env.images_dir }}/${image_name}" "${{ env.base_url }}/${image_name}"; then
-            echo "::error:: Failed to download the image from ${{ env.base_url }}/${image_name}'."
-            exit 1
-          fi
-
-  test-wsl-setup:
+  cloud-init-test:
     needs: [build-deb, cache-img]
-    name: "Integration tests"
+    name: "Cloud-init tests"
     runs-on: windows-2025 # WSL and winget are preinstalled and working
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu-insights-flag: ["0", "1", "12", "skip"] # False, True, Invalid, Not set
+        ubuntu-insights-state: ["false", "true", "null", "skip"]
+        exclude:
+          # Skip combinations that would result in an interactive prompt
+          - ubuntu-insights-flag: "skip"
+            ubuntu-insights-state: "null"
+          - ubuntu-insights-flag: "12"
+            ubuntu-insights-state: "null"
+          - ubuntu-insights-flag: "skip"
+            ubuntu-insights-state: "skip"
+          - ubuntu-insights-flag: "12"
+            ubuntu-insights-state: "skip"
+
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
       - name: Download artifacts
         uses: actions/download-artifact@v5
         with:
@@ -105,20 +68,21 @@ jobs:
           # name: is left blank so that all artifacts are downloaded, thus we don't couple on
           # whatever name was chosen in the build-debian action.
 
-      - name: Fetch the image from cache
-        id: cache
-        uses: actions/cache@v4
+      - name: Get WSL image
+        uses: ./.github/actions/get-wsl-image
         with:
-          path: ${{ env.images_dir }}
-          key: ${{ needs.cache-img.outputs.cache-key }}
-          restore-keys: |
-            ${{ needs.cache-img.outputs.cache-key }}
-          enableCrossOsArchive: true
+          output_path: images.wsl
 
-      - name: "Set up a WSL instance from the daily image"
+      - name: Prepare Ubuntu Insights consent registry key
+        if: matrix.ubuntu-insights-flag != 'skip'
+        shell: powershell
+        run: |
+          New-Item -Path "${{ env.insights_registry_key_path }}" -Force
+          New-ItemProperty -Path "${{ env.insights_registry_key_path }}" -Name "${{ env.insights_registry_value_name }}" -Value "${{ matrix.ubuntu-insights-flag }}" -PropertyType DWord -Force
+
+      - name: Prepare WSL instance and cloud-init
         shell: powershell
         env:
-          image_name: ${{ needs.cache-img.outputs.cache-image-name }}
           WSL_UTF8: "1" # Recommended otherwise it's hard to read wsl output on Github
           # Just to skip the interactive session
           cloudinit: |
@@ -129,16 +93,20 @@ jobs:
               groups: [adm,dialout,cdrom,floppy,sudo,audio,dip,video,plugdev,netdev]
               sudo: ALL=(ALL) NOPASSWD:ALL
               shell: /bin/bash
+            packages: [hello]
             write_files:
             - path: /etc/wsl.conf
               append: true
               content: |
                 [user]
                 default=u
-            packages: [hello]
         run: |
+          if ("${{ matrix.ubuntu-insights-state }}" -ne "skip") {
+            $env:cloudinit += "`- path: /home/u/.config/ubuntu-insights/wsl_setup-consent.toml`n  owner: u:u`n  permissions: '0755'`n  defer: true`n  content: |`n    consent_state = ${{ matrix.ubuntu-insights-state }}"
+          }
+
           # No launch so we can install the deb before running the OOBE
-          wsl --install --no-launch --from-file "${{ env.images_dir }}/${{ env.image_name }}" --name "${{ env.instance }}"
+          wsl --install --no-launch --from-file "images.wsl" --name "${{ env.instance }}"
           wsl -d "${{ env.instance }}" -u root -- ls -l "./ci-artifacts/wsl-setup_*/"
           wsl -d "${{ env.instance }}" -u root -- dpkg -i "./ci-artifacts/wsl-setup_*/wsl-setup_*.deb"
 
@@ -166,32 +134,194 @@ jobs:
         shell: powershell
         run: |
           wsl -d "${{ env.instance }}" # Will run the wsl-setup script.
-          if (!(Test-Path -Path "${env:LocalAppData}\Microsoft\Windows\Fonts\Ubuntu*.ttf")) {
-            Write-Error "Ubuntu font was not installed as expected"
-            Exit 1
-          }
-          if (!(Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts\" -Name "Ubuntu*" )) {
-            Write-Error "Ubuntu font was not registered"
-            Exit 2
-          }
+
           wsl -d "${{ env.instance }}" -u root -- bash -ec "rm ${{ env.profile_script }} || true"
           wsl -d "${{ env.instance }}" -u root -- bash -ec "cat /var/log/cloud-init.log || true"
           wsl --terminate ${{ env.instance }}
 
-      - uses: ubuntu/WSL/.github/actions/wsl-checkout@main
-        with:
-          distro: ${{ env.instance }}
-          working-dir: ${{ env.instance_working_dir }}
+      - name: Determine expected consent state
+        id: expected-consent
+        shell: powershell
+        run: |
+          $state = "${{ matrix.ubuntu-insights-state }}"
+          $flag  = "${{ matrix.ubuntu-insights-flag }}"
 
-      - name: Assertions on the new instance
+          if ($state -eq "true" -or $state -eq "false") {
+              $expected = $state
+          } elseif ($flag -eq "1") {
+              $expected = "true"
+          } elseif ($flag -eq "0") {
+              $expected = "false"
+          } else {
+              Write-Error "Internal test setup error: invalid state='$state' and flag='$flag'. Expected state to be 'true' or 'false', or flag to be '0' or '1'."
+              Exit 1
+          }
+
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "expected=$expected"
+
+      - name: Validate instance state
+        uses: ./.github/actions/validate-wsl
+        with:
+          instance: ${{ env.instance }}
+          working-dir: ${{ env.instance_working_dir }}
+          expected-user: u
+          expected-internal-consent-state: ${{ steps.expected-consent.outputs.expected }}
+          expected-registry-consent-state: ${{ matrix.ubuntu-insights-flag }}
+
+      - name: Run hello package
         uses: ubuntu/WSL/.github/actions/wsl-bash@main
         with:
           distro: ${{ env.instance }}
           working-dir: ${{ env.instance_working_dir }}
           exec: |
-            source test/integration-test.sh
+            if ! hello; then
+              echo "::error:: Failed to execute the hello program that should have been installed by cloud-init"
+              exit 1
+            fi
 
-      - name: "Clean up" # Probably not necessary since we're leveraging ephemeral GH's runners.
+      - name: Clean up # Probably not necessary since we're leveraging ephemeral GH's runners.
+        if: always()
+        shell: powershell
+        run: |
+          wsl --unregister ${{ env.instance }}
+
+  interactive-test:
+    needs: [build-deb, cache-img]
+    name: "Interactive Expect tests"
+    runs-on: windows-2025 # WSL is preinstalled and working
+    env:
+      username: test-ubuntu-user
+      password: TestPass123!
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Basic interactive consent
+          - consent: "default"
+            consent-registry-flag: "skip"
+            config-state: "skip"
+            expected-internal: "true"
+            expected-registry: "1"
+          - consent: "yes"
+            consent-registry-flag: "skip"
+            config-state: "skip"
+            expected-internal: "true"
+            expected-registry: "1"
+          - consent: "no"
+            consent-registry-flag: "skip"
+            config-state: "skip"
+            expected-internal: "false"
+            expected-registry: "0"
+          # Handle null states
+          - consent: "yes"
+            consent-registry-flag: "123"
+            config-state: "null"
+            expected-internal: "true"
+            expected-registry: "1"
+          # Config state takes precedence over registry flag
+          - consent: "skip"
+            consent-registry-flag: "1"
+            config-state: "false"
+            expected-internal: "false"
+            expected-registry: "1"
+          - consent: "skip"
+            consent-registry-flag: "0"
+            config-state: "true"
+            expected-internal: "true"
+            expected-registry: "0"
+          # Registry flag takes precedence over interactive prompt
+          - consent: "skip"
+            consent-registry-flag: "1"
+            config-state: "skip"
+            expected-internal: "true"
+            expected-registry: "1"
+          - consent: "skip"
+            consent-registry-flag: "0"
+            config-state: "null"
+            expected-internal: "false"
+            expected-registry: "0"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: ci-artifacts
+
+      - name: Get WSL image
+        uses: ./.github/actions/get-wsl-image
+        with:
+          output_path: images.wsl
+
+      - name: Prepare Ubuntu Insights consent registry key
+        if: matrix.consent-registry-flag != 'skip'
+        shell: powershell
+        run: |
+          New-Item -Path "${{ env.insights_registry_key_path }}" -Force
+          New-ItemProperty -Path "${{ env.insights_registry_key_path }}" -Name "${{ env.insights_registry_value_name }}" -Value "${{ matrix.consent-registry-flag }}" -PropertyType DWord -Force
+
+      - name: Install WSL instance
+        shell: powershell
+        env:
+          WSL_UTF8: "1"
+        run: |
+          wsl --install --no-launch --from-file "images.wsl" --name "${{ env.instance }}"
+
+      - name: Install wsl-setup and test dependencies
+        shell: powershell
+        env:
+          WSL_UTF8: "1"
+        run: |
+          # Install the deb package
+          wsl -d "${{ env.instance }}" -u root -- dpkg -i "./ci-artifacts/wsl-setup_*/wsl-setup_*.deb"
+          # Install expect
+          wsl -d "${{ env.instance }}" -u root -- apt-get update
+          wsl -d "${{ env.instance }}" -u root -- apt-get install -y expect
+
+      - name: Configure consent file
+        if: matrix.config-state != 'skip'
+        shell: powershell
+        env:
+          WSL_UTF8: "1"
+        run: |
+          $configContent = "consent_state = ${{ matrix.config-state }}"
+          wsl -d "${{ env.instance }}" -u root -- bash -c "mkdir -p /etc/skel/.config/ubuntu-insights"
+          wsl -d "${{ env.instance }}" -u root -- bash -c "echo '$configContent' > /etc/skel/.config/ubuntu-insights/wsl_setup-consent.toml"
+
+      - name: Reset WSL instance state
+        shell: powershell
+        env:
+          WSL_UTF8: "1"
+        run: |
+          wsl -d "${{ env.instance }}" -u root -- cloud-init status --wait
+          wsl -d "${{ env.instance }}" -u root -- bash -ec "rm /etc/cloud/cloud-init.disabled || true"
+          wsl -d "${{ env.instance }}" -u root -- cloud-init clean --logs
+          wsl --shutdown
+
+      - name: Run expect test
+        shell: powershell
+        env:
+          WSL_UTF8: "1"
+        timeout-minutes: 10
+        run: |
+          # Copy expect script to instance
+          wsl -d "${{ env.instance }}" -u root -- cp "test/e2e/setup.expect" "/tmp/setup.expect"
+
+          # Run the expect script
+          wsl -d "${{ env.instance }}" -u root -- expect /tmp/setup.expect "${{ env.username }}" "${{ env.password }}" "${{ matrix.consent }}"
+
+      - name: Validate instance state
+        uses: ./.github/actions/validate-wsl
+        with:
+          instance: ${{ env.instance }}
+          working-dir: ${{ env.instance_working_dir }}
+          expected-user: ${{ env.username }}
+          expected-internal-consent-state: ${{ matrix.expected-internal }}
+          expected-registry-consent-state: ${{ matrix.expected-registry }}
+
+      - name: Clean up # Probably not necessary since we're leveraging ephemeral GH's runners.
         if: always()
         shell: powershell
         run: |

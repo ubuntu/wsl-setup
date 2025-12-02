@@ -1,0 +1,113 @@
+#!/usr/bin/expect -f
+
+set timeout 240
+
+set username [lindex $argv 0]
+set password [lindex $argv 1]
+set consent [lindex $argv 2]
+
+if {$username == ""} {
+    puts "Error: Username argument is required."
+    exit 1
+}
+
+if {$password == ""} {
+    puts "Error: Password argument is required."
+    exit 1
+}
+
+if {$consent == ""} {
+    puts "Error: Consent argument is required (yes, no, skip, default)."
+    exit 1
+}
+
+# Spawn the setup script
+spawn /usr/lib/wsl/wsl-setup
+
+# Handle Username
+expect {
+    "Create a default Unix user account:" {
+        # Send Ctrl-U to clear the pre-filled default username
+        send "\025"
+        send "$username\r"
+    }
+    timeout {
+        puts "Error: Timeout waiting for username prompt."
+        exit 1
+    }
+}
+
+# Handle Password
+expect {
+    "New password:" {
+        send "$password\r"
+    }
+    timeout {
+        puts "Error: Timeout waiting for password prompt."
+        exit 1
+    }
+}
+
+expect {
+    "Retype new password:" {
+        send "$password\r"
+    }
+    timeout {
+        puts "Error: Timeout waiting for retype password prompt."
+        exit 1
+    }
+}
+
+# Handle Consent
+if {$consent == "skip"} {
+    # If we expect to skip, we should NOT see the consent prompt.
+    expect {
+        "Would you like to opt-in to platform metrics collection (Y/n)? To see an example of the data collected, enter 'e'." {
+            puts "Error: Consent prompt appeared but should have been skipped."
+            exit 1
+        }
+        eof {
+            # Script finished successfully
+        }
+        timeout {
+             puts "Error: Timeout waiting for EOF (skip scenario)."
+             exit 1
+        }
+    }
+} else {
+    expect {
+        "\\\[Y/n/e\\\]: " {
+            if {$consent == "default"} {
+                send "\r"
+            } else {
+                # Send Ctrl-U to clear the pre-filled default consent value
+                send "\025"
+
+                if {$consent == "yes"} {
+                    send "y\r"
+                } elseif {$consent == "no"} {
+                    send "n\r"
+                } else {
+                    puts "Error: Invalid consent value '$consent'. Use yes, no, skip, or default."
+                    exit 1
+                }
+            }
+        }
+        timeout {
+            puts "Error: Timeout waiting for consent prompt."
+            exit 1
+        }
+        eof {
+            puts "Error: Unexpected EOF while waiting for consent prompt."
+            exit 1
+        }
+    }
+    expect eof
+}
+
+# Check exit status
+lassign [wait] pid spawnid os_error_flag value
+if {$value != 0} {
+    puts "Error: wsl-setup failed with exit code $value"
+    exit $value
+}

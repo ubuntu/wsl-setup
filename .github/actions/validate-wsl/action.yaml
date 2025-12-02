@@ -1,0 +1,113 @@
+# This action validates a newly set up WSL instance by running a set of basic assertions. Interop must be enabled.
+name: Validate WSL Setup
+description: Validate a newly set up WSL instance by running a set of basic assertions.
+
+inputs:
+  instance:
+    description: "The name of the WSL instance to validate"
+    required: true
+  working-dir:
+    description: "The working directory to checkout scripts to inside the WSL instance"
+    required: true
+  expected-user:
+    description: "The expected default user in the WSL instance"
+    required: true
+  expected-internal-consent-state:
+    description: "The expected default Ubuntu Insights internal consent state (true, false)"
+    required: true
+  expected-registry-consent-state:
+    description: "The expected Ubuntu Insights registry consent state. If skip, asserts that the registry key doesn't exist."
+    required: false
+    default: "skip"
+  skip-systemd-assertions:
+    description: "Whether to skip systemd specific tests"
+    required: false
+    default: "false"
+  skip-font-assertions:
+    description: "Whether to skip the font installation test"
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Terminate WSL instance
+      shell: powershell
+      run: |
+        wsl --terminate ${{ inputs.instance }}
+
+    - name: Checkout scripts into WSL
+      uses: ubuntu/WSL/.github/actions/wsl-checkout@main
+      with:
+        distro: ${{ inputs.instance }}
+        working-dir: ${{ inputs.working-dir }}
+
+    - name: Run basic assertions
+      uses: ubuntu/WSL/.github/actions/wsl-bash@main
+      with:
+        distro: ${{ inputs.instance }}
+        working-dir: ${{ inputs.working-dir }}
+        exec: |
+          source test/basic-assertions.sh "${{ inputs.expected-user }}"
+
+    - name: Run font installation assertions
+      if: ${{ inputs.skip-font-assertions == 'false' }}
+      shell: powershell
+      run: |
+        if (!(Test-Path -Path "${env:LocalAppData}\Microsoft\Windows\Fonts\Ubuntu*.ttf")) {
+          Write-Error "Ubuntu font was not installed as expected"
+          Exit 1
+        }
+        if (!(Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts\" -Name "Ubuntu*" )) {
+          Write-Error "Ubuntu font was not registered"
+          Exit 2
+        }
+
+    - name: Run systemd assertions
+      if: ${{ inputs.skip-systemd-assertions == 'false' }}
+      uses: ubuntu/WSL/.github/actions/wsl-bash@main
+      with:
+        distro: ${{ inputs.instance }}
+        working-dir: ${{ inputs.working-dir }}
+        exec: |
+          source test/systemd-assertions.sh
+
+    - name: Run internal insights consent assertions
+      uses: ubuntu/WSL/.github/actions/wsl-bash@main
+      with:
+        distro: ${{ inputs.instance }}
+        working-dir: ${{ inputs.working-dir }}
+        exec: |
+          source test/ubuntu-insights-assertions.sh "${{ inputs.expected-internal-consent-state }}"
+
+    - name: Run registry insights consent assertions
+      shell: powershell
+      run: |
+        $registry_key_path = "HKCU:\Software\Canonical\Ubuntu\"
+        $registry_value_name = "UbuntuInsightsConsent"
+
+        if ("${{ inputs.expected-registry-consent-state }}" -eq "skip") {
+          # Expect the registry key to not exist
+          try {
+            $reg = Get-ItemProperty -Path $registry_key_path -Name $registry_value_name -ErrorAction Stop
+            Write-Error "Ubuntu Insights registry key was found but was not expected"
+            Exit 1
+          } catch {
+            # Key does not exist as expected
+            Exit 0
+          }
+        }
+
+        try {
+          $reg = Get-ItemProperty -Path $registry_key_path -Name $registry_value_name -ErrorAction Stop
+        } catch {
+          Write-Error "Ubuntu Insights registry key not found"
+          Exit 1
+        }
+
+        $actual = $reg.UbuntuInsightsConsent
+        $expected = "${{ inputs.expected-registry-consent-state }}"
+        if (-not ("$actual".Trim() -ieq "$expected".Trim())) {
+          Write-Error "Ubuntu Insights registry value mismatch. Expected '$expected' but found '$actual'"
+          Exit 2
+        }
