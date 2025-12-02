@@ -12,13 +12,14 @@ registry_value_name="UbuntuInsightsConsent"
 # List of regular users
 readarray -t users < <(getent passwd | grep -Ev '/nologin|/false|/sync' | awk -F: '$3 >= 1000 { print $1 }')
 
-function askQuestion() {
+function ask_question() {
 	# Only ask if we are in an interactive terminal
 	if [ ! -t 0 ]; then
 		return
 	fi
 
 	local choice_val=""
+	local view_choice=""
 	while true; do
 		echo "Would you like to opt-in to platform metrics collection (Y/n)? To see an example of the data collected, enter 'e'."
 		read -rep "[Y/n/e]: " -i "y" view_choice
@@ -136,6 +137,6 @@ For legal details, please visit: https://ubuntu.com/legal/systems-information-no
 
 We will save your answer to Windows and will only ask you once.
 "
-askQuestion
+ask_question
 
 collect

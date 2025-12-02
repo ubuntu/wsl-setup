@@ -1,7 +1,7 @@
 #!/bin/bash
 # This is a set of basic assertions to verify systemd specific conditions in a newly set up WSL instance.
 # This should run inside a WSL instance or machine prepared for testing purposes.
-# It requires installing the wsl-setup Debian package to assert on their results.
+# It requires installing the wsl-setup Debian package to assert on its results.
 
 if [[ $(LANG=C systemctl is-system-running) != "running" ]]; then
 	systemctl --failed

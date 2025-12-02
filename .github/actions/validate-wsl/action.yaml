@@ -55,11 +55,11 @@ runs:
       shell: powershell
       run: |
         if (!(Test-Path -Path "${env:LocalAppData}\Microsoft\Windows\Fonts\Ubuntu*.ttf")) {
-          Write-Error "::error:: Ubuntu font was not installed as expected"
+          Write-Error "Ubuntu font was not installed as expected"
           Exit 1
         }
         if (!(Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts\" -Name "Ubuntu*" )) {
-          Write-Error "::error:: Ubuntu font was not registered"
+          Write-Error "Ubuntu font was not registered"
           Exit 2
         }
 
@@ -90,7 +90,7 @@ runs:
           # Expect the registry key to not exist
           try {
             $reg = Get-ItemProperty -Path $registry_key_path -Name $registry_value_name -ErrorAction Stop
-            Write-Error "::error:: Ubuntu Insights registry key was found but was not expected"
+            Write-Error "Ubuntu Insights registry key was found but was not expected"
             Exit 1
           } catch {
             # Key does not exist as expected
@@ -101,13 +101,13 @@ runs:
         try {
           $reg = Get-ItemProperty -Path $registry_key_path -Name $registry_value_name -ErrorAction Stop
         } catch {
-          Write-Error "::error:: Ubuntu Insights registry key not found"
+          Write-Error "Ubuntu Insights registry key not found"
           Exit 1
         }
 
         $actual = $reg.UbuntuInsightsConsent
         $expected = "${{ inputs.expected-registry-consent-state }}"
         if (-not ("$actual".Trim() -ieq "$expected".Trim())) {
-          Write-Error "::error:: Ubuntu Insights registry value mismatch. Expected '$expected' but found '$actual'"
+          Write-Error "Ubuntu Insights registry value mismatch. Expected '$expected' but found '$actual'"
           Exit 2
         }

@@ -1,7 +1,7 @@
 #!/bin/bash
 # This is a set of basic assertions partially validating Ubuntu Insights consent setup in WSL.
 # This should run inside a WSL instance or machine prepared for testing purposes.
-# It requires installing the wsl-setup Debian package to assert on their results.
+# It requires installing the wsl-setup Debian package to assert on its results.
 # The expected consent state can be passed as the first argument: true or false.
 
 EXPECTED_CONSENT=${1}

@@ -66,13 +66,8 @@ runs:
         if [ -r "$output_path" ]; then
           echo "Found local image at $output_path"
           
-          # Compute SHA256 of the local file
-          local_sha=$(sha256sum "$output_path" | awk '{print $1}')
-          echo "Local image SHA256: $local_sha"
-          echo "Expected SHA256: $expected_sha"
-          
           # Compare the SHAs
-          if [ "$local_sha" = "$expected_sha" ]; then
+          if (echo "$expected_sha  $output_path" | sha256sum -c); then
             echo "✅ Local image matches expected SHA. Using local file."
             echo "is-valid=true" >> "$GITHUB_OUTPUT"
           else
@@ -100,10 +95,18 @@ runs:
       run: |
         set -euo pipefail
 
+        expected_sha="${{ steps.compute-cache-key.outputs.cache-key }}"
+        output_path="${{ inputs.output_path }}"
+
         uri="${{ inputs.base_url }}/${{ steps.compute-cache-key.outputs.image-name }}"
-        if ! curl --fail -o "${{ inputs.output_path }}" "$uri"; then
+        if ! curl --fail -o "$output_path" "$uri"; then
             echo "::error:: Failed to download the WSL image from $uri"
             exit 1
+        fi
+
+        if ! (echo "$expected_sha  $output_path" | sha256sum -c); then
+            echo "::error:: Downloaded WSL image SHA does not match expected SHA."
+            exit 2
         fi
 
     - name: Save image to cache

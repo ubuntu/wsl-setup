@@ -44,7 +44,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ubuntu-insights-flag: ["0", "1", "12", "skip"]
+        ubuntu-insights-flag: ["0", "1", "12", "skip"] # False, True, Invalid, Not set
         ubuntu-insights-state: ["false", "true", "null", "skip"]
         exclude:
           # Skip combinations that would result in an interactive prompt
@@ -188,7 +188,7 @@ jobs:
   interactive-test:
     needs: [build-deb, cache-img]
     name: "Interactive Expect tests"
-    runs-on: windows-2025 # WSL and winget are preinstalled and working
+    runs-on: windows-2025 # WSL is preinstalled and working
     env:
       username: test-ubuntu-user
       password: TestPass123!
@@ -200,30 +200,46 @@ jobs:
           - consent: "default"
             consent-registry-flag: "skip"
             config-state: "skip"
+            expected-internal: "true"
+            expected-registry: "1"
           - consent: "yes"
             consent-registry-flag: "skip"
             config-state: "skip"
+            expected-internal: "true"
+            expected-registry: "1"
           - consent: "no"
             consent-registry-flag: "skip"
             config-state: "skip"
+            expected-internal: "false"
+            expected-registry: "0"
           # Handle null states
           - consent: "yes"
             consent-registry-flag: "123"
             config-state: "null"
+            expected-internal: "true"
+            expected-registry: "1"
           # Config state takes precedence over registry flag
           - consent: "skip"
             consent-registry-flag: "1"
             config-state: "false"
+            expected-internal: "false"
+            expected-registry: "1"
           - consent: "skip"
             consent-registry-flag: "0"
             config-state: "true"
+            expected-internal: "true"
+            expected-registry: "0"
           # Registry flag takes precedence over interactive prompt
           - consent: "skip"
             consent-registry-flag: "1"
             config-state: "skip"
+            expected-internal: "true"
+            expected-registry: "1"
           - consent: "skip"
             consent-registry-flag: "0"
             config-state: "null"
+            expected-internal: "false"
+            expected-registry: "0"
 
     steps:
       - name: Check out repository
@@ -291,57 +307,10 @@ jobs:
         timeout-minutes: 10
         run: |
           # Copy expect script to instance
-          Get-Content "test/e2e/setup.expect" -Encoding UTF8 | wsl -d "${{ env.instance }}" -u root -- bash -c "cat > /tmp/setup.expect"
+          wsl -d "${{ env.instance }}" -u root -- cp "test/e2e/setup.expect" "/tmp/setup.expect"
 
           # Run the expect script
           wsl -d "${{ env.instance }}" -u root -- expect /tmp/setup.expect "${{ env.username }}" "${{ env.password }}" "${{ matrix.consent }}"
-
-      - name: Determine expected consent state
-        id: expected-consent
-        shell: powershell
-        run: |
-          $configState = "${{ matrix.config-state }}"
-          $registryFlag = "${{ matrix.consent-registry-flag }}"
-          $interactiveConsent = "${{ matrix.consent }}"
-
-          $expectedInternal = ""
-          $expectedRegistry = ""
-
-          # 1. Local Config
-          if ($configState -ne "skip" -and $configState -ne "null") {
-              $expectedInternal = $configState
-              # Registry is not touched by script if local config exists.
-              # So expected registry is whatever we started with.
-              $expectedRegistry = $registryFlag
-          }
-          # 2. Registry (Valid values only)
-          elseif ($registryFlag -eq "1") {
-              $expectedInternal = "true"
-              $expectedRegistry = "1"
-          }
-          elseif ($registryFlag -eq "0") {
-              $expectedInternal = "false"
-              $expectedRegistry = "0"
-          }
-          # 3. Interactive (Fallback)
-          else {
-              if ($interactiveConsent -eq "yes" -or $interactiveConsent -eq "default") {
-                  $expectedInternal = "true"
-                  $expectedRegistry = "1"
-              }
-              elseif ($interactiveConsent -eq "no") {
-                  $expectedInternal = "false"
-                  $expectedRegistry = "0"
-              }
-          }
-
-          if ($expectedInternal -eq "") {
-              Write-Error "::error:: Could not determine expected consent state."
-              exit 1
-          }
-
-          Add-Content -Path $env:GITHUB_OUTPUT -Value "expected-internal=$expectedInternal"
-          Add-Content -Path $env:GITHUB_OUTPUT -Value "expected-registry=$expectedRegistry"
 
       - name: Validate instance state
         uses: ./.github/actions/validate-wsl
@@ -349,8 +318,8 @@ jobs:
           instance: ${{ env.instance }}
           working-dir: ${{ env.instance_working_dir }}
           expected-user: ${{ env.username }}
-          expected-internal-consent-state: ${{ steps.expected-consent.outputs.expected-internal }}
-          expected-registry-consent-state: ${{ steps.expected-consent.outputs.expected-registry }}
+          expected-internal-consent-state: ${{ matrix.expected-internal }}
+          expected-registry-consent-state: ${{ matrix.expected-registry }}
 
       - name: Clean up # Probably not necessary since we're leveraging ephemeral GH's runners.
         if: always()
