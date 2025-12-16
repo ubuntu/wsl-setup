@@ -1,0 +1,27 @@
+name: ShellCheck QA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions: {}
+
+env:
+  EXTENSIONLESS_SCRIPTS: "wsl-setup wait-for-cloud-init ubuntu-insights"
+
+jobs:
+  shellcheck:
+    name: Run ShellCheck
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Find and Run ShellCheck
+        run: |
+          exec shellcheck -f gcc $(
+            find . \
+              \( -name '*.sh' -o -name '*.bash' -o -name '*.zsh' \
+              $(for f in $EXTENSIONLESS_SCRIPTS; do echo -o -name "$f"; done) \) \
+              -type f
+          )
