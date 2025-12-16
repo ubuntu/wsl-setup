@@ -8,7 +8,7 @@ function command_not_found_handle() {
 
 # get_first_interactive_uid returns first interactive non system user uid with uid >=1000.
 function get_first_interactive_uid() {
-	getent passwd | egrep -v '/nologin|/false|/sync' | sort -t: -k3,3n | awk -F: '$3 >= 1000 { print $3; exit }'
+	getent passwd | grep -E -v '/nologin|/false|/sync' | sort -t: -k3,3n | awk -F: '$3 >= 1000 { print $3; exit }'
 }
 
 # create_regular_user prompts user for a username and assign default WSL permissions.
@@ -20,14 +20,15 @@ function create_regular_user() {
 	local DEFAULT_GROUPS='adm,cdrom,sudo,dip,plugdev'
 
 	# Filter the prefilled username to remove invalid characters.
-	default_username=$(echo "${default_username}" | sed 's/[^a-z0-9_-]//g')
-	# It should start with a character or _.
-	default_username=$(echo "${default_username}" | sed 's/^[^a-z_]//')
+	# Remove all characters except a-z, 0-9, _ and -
+	default_username="${default_username//[^a-z0-9_-]/}"
+	# Remove leading character if not a-z or _
+	default_username="${default_username#[!a-z_]}"
 
 	# Ensure a valid username
 	while true; do
 		# Prefill the prompt with the Windows username.
-		read -e -p "Create a default Unix user account: " -i "${default_username}" username
+		read -er -p "Create a default Unix user account: " -i "${default_username}" username
 
 		# Validate the username.
 		if [[ ! "${username}" =~ ${valid_username_regex} ]]; then
@@ -80,7 +81,9 @@ function powershell_env() {
 		return 1
 	fi
 
-	local ret=$(powershell.exe -NoProfile -Command '& {
+	local ret
+	# shellcheck disable=SC2016 # Intentional due to how we use powershell
+	ret=$(powershell.exe -NoProfile -Command '& {
                             [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
                             $Env:'"${var}"'}') 2>/dev/null || true
 	# strip control chars like \r and \n
@@ -90,7 +93,8 @@ function powershell_env() {
 
 # install_ubuntu_font copies the Ubuntu font into Windows filesystem and register it for the current Windows user.
 function install_ubuntu_font() {
-	local local_app_data=$(powershell_env "LocalAppData")
+	local local_app_data
+	local_app_data=$(powershell_env "LocalAppData")
 	if [ -z "${local_app_data}" ]; then
 		return
 	fi
@@ -106,7 +110,9 @@ function install_ubuntu_font() {
 	cp "/usr/share/fonts/truetype/ubuntu/${font}" "${fonts_dir}" 2>/dev/null || true
 
 	# Register the font for the current user.
-	local dst=$(wslpath -aw "${fonts_dir}/${font}") 2>/dev/null || true
+	local dst
+	dst=$(wslpath -aw "${fonts_dir}/${font}") 2>/dev/null || true
+	# shellcheck disable=SC2016 # Intentional due to how we use powershell
 	powershell.exe -NoProfile -Command '& {
               $null = New-Item -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion" -Name "Fonts" 2>$null;
               $null = New-ItemProperty -Name "Ubuntu Mono (TrueType)" -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts" -PropertyType string -Value "'"${dst}"'" 2>$null;
@@ -125,7 +131,7 @@ install_ubuntu_font
 
 # Wait for cloud-init to finish if systemd and its service is enabled
 # by running the script located at the same dir as this one.
-this_dir=$(dirname "$(realpath $0)")
+this_dir=$(dirname "$(realpath "$0")")
 source "${this_dir}/wait-for-cloud-init"
 
 # Check if there is a pre-provisioned users (pre-baked on the rootfs or created by cloud-init).

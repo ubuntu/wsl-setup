@@ -47,6 +47,7 @@ function apply_consent() {
 
 	for user in "${users[@]}"; do
 		for source in "${sources[@]}"; do
+			# shellcheck disable=SC2016 # Intentional due to how we pass parameters to a su command
 			su "$user" -c 'ubuntu-insights consent "$0" -s="$1" > /dev/null' -- "$source" "$([[ $consent -eq 1 ]] && echo true || echo false)"
 		done
 	done
@@ -101,17 +102,20 @@ function collect() {
 
 # Check if ubuntu-insights is installed
 if ! command -v ubuntu-insights >/dev/null 2>&1; then
+	# shellcheck disable=SC2317 # For when not run in a function
 	return 0 2>/dev/null || exit 0
 fi
 
 # Skip if no users found
 if [ "${#users[@]}" -eq 0 ]; then
+	# shellcheck disable=SC2317 # For when not run in a function
 	return 0 2>/dev/null || exit 0
 fi
 
 # Check if consent is already set locally
 if check_local_consent; then
 	collect
+	# shellcheck disable=SC2317 # For when not run in a function
 	return 0 2>/dev/null || exit 0
 fi
 
@@ -120,6 +124,7 @@ consent_value=$(read_consent_registry)
 if [[ "$consent_value" =~ ^[01]$ ]]; then
 	apply_consent "$consent_value"
 	collect
+	# shellcheck disable=SC2317 # For when not run in a function
 	return 0 2>/dev/null || exit 0
 fi
 
