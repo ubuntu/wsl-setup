@@ -62,7 +62,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           path: ci-artifacts
           # name: is left blank so that all artifacts are downloaded, thus we don't couple on
@@ -246,7 +246,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           path: ci-artifacts
 
