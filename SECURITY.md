@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-WSL Setup is distributed via the Ubuntu archive as the [`wsl-setup` package](https://launchpad.net/ubuntu/+source/wsl-setup).
+`wsl-setup` is distributed via the Ubuntu archive as the [`wsl-setup` package](https://launchpad.net/ubuntu/+source/wsl-setup).
 
 Currently, we provide security updates for supported LTS releases of Ubuntu on WSL.
 
@@ -17,7 +17,7 @@ lsb_release -a
 
 If you discover a security vulnerability within this repository, we encourage
 responsible disclosure. Please report any security issues to help us keep
-`WSL Setup` and Ubuntu on WSL secure for everyone.
+`wsl-setup` and Ubuntu on WSL secure for everyone.
 
 ### Private vulnerability reporting
 
@@ -26,7 +26,7 @@ The most straightforward way to report a security vulnerability is through
 instructions, please review the
 [Privately reporting a security vulnerability](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability)
 documentation. This method enables you to communicate vulnerabilities directly
-and confidentially with the `WSL Setup` maintainers.
+and confidentially with the `wsl-setup` maintainers.
 
 The project's admins will be notified of the issue and will work with you to
 determine whether the issue qualifies as a security issue and, if so, in which
@@ -38,7 +38,7 @@ contains more information about what you can expect when you contact us, and wha
 
 #### Steps to report a vulnerability on GitHub
 
-1. Go to the [Security Advisories Page](https://github.com/ubuntu/wsl-setup/security/advisories) of the `WSL Setup` repository.
+1. Go to the [Security Advisories Page](https://github.com/ubuntu/wsl-setup/security/advisories) of the `wsl-setup` repository.
 2. Click "Report a Vulnerability"
 3. Provide detailed information about the vulnerability, including steps to reproduce, affected versions, and potential impact.
 
