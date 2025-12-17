@@ -1,14 +1,13 @@
 wsl-setup (0.6.0) resolute; urgency=medium
 
-  * Add ubuntu-insights integration
-
- -- Kat Kuo <kat.kuo@canonical.com>  Tue, 25 Nov 2025 19:56:56 -0500
-
-wsl-setup (0.5.11) questing; urgency=medium
-
+  [ Kat Kuo]
+  * Added ubuntu-insights integration
+  * Added integration tests in upstream CI
+  
+  [Carlos Nihelton]
   * Case-fold the Windows username before sanitization (LP: #2122047)
 
- -- Carlos Nihelton <cnihelton@ubuntu.com>  Thu, 04 Sep 2025 11:08:42 -0300
+ -- Kat Kuo <kat.kuo@canonical.com>  Tue, 25 Nov 2025 19:56:56 -0500
 
 wsl-setup (0.5.10) questing; urgency=medium
 
