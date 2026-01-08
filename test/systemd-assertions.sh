@@ -14,11 +14,14 @@ if [[ $(LANG=C systemctl is-active multipathd.service) != "inactive" ]]; then
 	exit 2
 fi
 
+# It's been a while since WSL kernel implemented a patch specifically for time sync with Hyper-V.
+# With that NTS clients inside WSL instances can cause more trouble if they don't sync with the same
+# source as Windows does. So we're no longer overriding this systemd unit, let be the defaults.
 # Let's not worry about chrony just yet.
 nts_unit="systemd-timesyncd.service"
 if systemctl is-enabled "${nts_unit}"; then
-	if [[ $(LANG=C systemctl is-active "${nts_unit}") != "active" ]]; then
-		echo "::error:: Unit ${nts_unit} should be enabled in WSL via ${nts_unit}.d/wsl.conf override"
+	if [[ $(LANG=C systemctl is-active "${nts_unit}") != "inactive" ]]; then
+		echo "::error:: Unit ${nts_unit} should be disabled by default."
 		systemctl status ${nts_unit}
 		exit 3
 	fi
