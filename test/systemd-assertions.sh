@@ -17,7 +17,7 @@ fi
 # Let's not worry about chrony just yet.
 nts_unit="systemd-timesyncd.service"
 if systemctl is-enabled "${nts_unit}"; then
-	if [[ $(LANG=C systemctl is-active "${nts_unit}") != "active" ]]; then
+	if [[ $(LANG=C systemctl is-active "${nts_unit}") != "inactive" ]]; then
 		echo "::error:: Unit ${nts_unit} should be enabled in WSL via ${nts_unit}.d/wsl.conf override"
 		systemctl status ${nts_unit}
 		exit 3
