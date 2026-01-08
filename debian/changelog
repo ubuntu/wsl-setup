@@ -1,4 +1,4 @@
-wsl-setup (0.6.0) resolute; urgency=medium
+wsl-setup (0.6.1) resolute; urgency=medium
 
   [ Kat Kuo]
   * Added ubuntu-insights integration
@@ -6,6 +6,7 @@ wsl-setup (0.6.0) resolute; urgency=medium
   
   [Carlos Nihelton]
   * Case-fold the Windows username before sanitization (LP: #2122047)
+  * Remove the systemd-timesyncd.service override that would enable it in WSL
 
  -- Kat Kuo <kat.kuo@canonical.com>  Tue, 25 Nov 2025 19:56:56 -0500
 
