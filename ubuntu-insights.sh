@@ -131,9 +131,8 @@ fi
 # Failed to read consent from the Windows registry, ask the user.
 echo "Help improve Ubuntu!
 
-You can share anonymous data with the Ubuntu development team so we can improve your experience.
-If you agree, we will collect and report anonymous hardware and system information.
-This information can't be used to identify a single machine.
+Help us improve Ubuntu features and compatibility by sharing system reports with Canonical.
+Reports are sent anonymously and do not contain any personal data.
 For legal details, please visit: https://ubuntu.com/legal/systems-information-notice
 
 We will save your answer to Windows and will only ask you once.
