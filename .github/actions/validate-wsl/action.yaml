@@ -31,10 +31,10 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Terminate WSL instance
+    - name: Shutdown WSL for a clean start
       shell: powershell
       run: |
-        wsl --terminate ${{ inputs.instance }}
+        wsl --shutdown
 
     - name: Checkout scripts into WSL
       uses: ubuntu/WSL/.github/actions/wsl-checkout@main
