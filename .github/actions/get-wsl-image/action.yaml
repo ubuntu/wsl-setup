@@ -47,12 +47,14 @@ runs:
           exit 2
         fi
 
-        # Extract the SHA (first field) and image name (second field without the *)
+        # Extract the SHA (first field), image name (second field without the *) and manifest.
         sha=$(echo "$line" | awk '{print $1}')
         image_name=$(echo "$line" | awk '{print $2}' | sed 's/^\*//')
+        image_manifest=$(echo "$image_name" | sed -E 's/\.wsl$/.manifest/')
 
         echo "cache-key=$sha" >> "$GITHUB_OUTPUT"
         echo "image-name=$image_name" >> "$GITHUB_OUTPUT"
+        echo "image-manifest=$image_manifest" >> "$GITHUB_OUTPUT"
 
     - name: Validate image
       id: check-locally
@@ -116,3 +118,22 @@ runs:
         path: ${{ inputs.output_path }}
         key: ${{ steps.restore-cache.outputs.cache-primary-key }}
         enableCrossOsArchive: true
+
+    - name: Save image manifest for future troubleshooting
+      if: ${{ steps.restore-cache.outputs.cache-hit != 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        uri="${{ inputs.base_url }}/${{ steps.compute-cache-key.outputs.image-manifest }}"
+        manifest_path="${{ runner.temp }}/image.manifest"
+        if ! curl --fail -o "$manifest_path" "$uri"; then
+            echo "::error:: Failed to download the WSL image manifest from $uri. This is not a critical failure, but may make troubleshooting harder in the future."
+        else
+            echo "Image manifest downloaded to $manifest_path"
+        fi
+    - uses: actions/upload-artifact@v7
+      if: ${{ steps.restore-cache.outputs.cache-hit != 'true' }}
+      with:
+        name: ${{ steps.compute-cache-key.outputs.image-name }}.manifest
+        path: "${{ runner.temp }}/image.manifest"
