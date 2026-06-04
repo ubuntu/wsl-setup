@@ -101,7 +101,7 @@ function install_ubuntu_font() {
 
 	local_app_data=$(wslpath -au "${local_app_data}") 2>/dev/null || true
 	local fonts_dir="${local_app_data}/Microsoft/Windows/Fonts"
-	local font="UbuntuMono[wght].ttf"
+	local font="UbuntuSansMono[wght].ttf"
 	mkdir -p "${fonts_dir}" 2>/dev/null
 	if [ -f "${fonts_dir}/${font}" ]; then
 		return
