@@ -10,7 +10,7 @@ Description: WSL integration setup
  enabled by default.
 
 Package: wsl-setup
-Architecture: any
+Architecture: all
 Depends: adduser,
          cloud-init,
          fonts-ubuntu,
