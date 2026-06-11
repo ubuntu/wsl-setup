@@ -1,3 +1,9 @@
+wsl-setup (0.6.4ubuntu) stonking; urgency=medium
+
+  * Change package architecture to 'all' in the control file 
+
+ -- Kat Kuo <kat.kuo@canonical.com>  Thu, 11 Jun 2026 12:21:34 -0400
+
 wsl-setup (0.6.3ubuntu) stonking; urgency=medium
 
   * Sync terminal profile with the Desktop theme (LP: #2156047)
