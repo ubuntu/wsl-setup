@@ -10,7 +10,7 @@ if [ -n "$BASH_VERSION" ] || [ -n "$ZSH_VERSION" ]; then
 	# shellcheck disable=SC2163 # Intentionally exporting the contents, not the variable itself.
         export "$line"
       fi
-    done < <(systemctl show-environment)
+    done < <(systemctl show-environment 2>/dev/null)
 else
     echo "This script is intended to be sourced in a bash or zsh shell."
 fi 
