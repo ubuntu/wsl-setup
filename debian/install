@@ -1,7 +1,8 @@
+90-wsl-env-bridge.sh etc/profile.d/
 cloud/ etc/
-update-motd.d/99-wsl etc/update-motd.d/
 systemd/ usr/lib/
 ubuntu-insights.sh usr/lib/wsl/
-wsl-setup usr/lib/wsl/
+update-motd.d/99-wsl etc/update-motd.d/
 wait-for-cloud-init usr/lib/wsl/
+wsl-setup usr/lib/wsl/
 wsl/ usr/share/

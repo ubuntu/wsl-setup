@@ -12,6 +12,7 @@ env:
   instance_working_dir: ~/wsl-setup-${{ github.run_id }}
   insights_registry_key_path: "HKCU:\\Software\\Canonical\\Ubuntu"
   insights_registry_value_name: "UbuntuInsightsConsent"
+  custom_locale: pt_BR.UTF-8
 
 jobs:
   build-deb:
@@ -84,9 +85,10 @@ jobs:
         shell: powershell
         env:
           WSL_UTF8: "1" # Recommended otherwise it's hard to read wsl output on Github
-          # Just to skip the interactive session
+          # To skip the interactive session and configure the system's desired state.
           cloudinit: |
             #cloud-config
+            locale: en_US.UTF-8
             users:
             - name: u
               gecos: Ubuntu User
@@ -94,6 +96,10 @@ jobs:
               sudo: ALL=(ALL) NOPASSWD:ALL
               shell: /bin/bash
             packages: [hello]
+            # Sets numeric output in the ${{ env.custom_locale }} locale, while everything else remains in en_US.UTF-8.
+            runcmd:
+            - locale-gen ${{ env.custom_locale }}
+            - update-locale LC_NUMERIC=${{ env.custom_locale }}
             write_files:
             - path: /etc/wsl.conf
               append: true
@@ -311,6 +317,14 @@ jobs:
 
           # Run the expect script
           wsl -d "${{ env.instance }}" -u root -- expect /tmp/setup.expect "${{ env.username }}" "${{ env.password }}" "${{ matrix.consent }}"
+
+      - name: Set up custom locale for testing
+        shell: powershell
+        env:
+          WSL_UTF8: "1"
+        run: |
+          wsl -d "${{ env.instance }}" -u root -- locale-gen ${{ env.custom_locale }}
+          wsl -d "${{ env.instance }}" -u root -- update-locale LC_NUMERIC=${{ env.custom_locale }}
 
       - name: Validate instance state
         uses: ./.github/actions/validate-wsl
