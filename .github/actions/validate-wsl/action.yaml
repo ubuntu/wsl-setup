@@ -48,6 +48,7 @@ runs:
         distro: ${{ inputs.instance }}
         working-dir: ${{ inputs.working-dir }}
         exec: |
+          source /etc/profile
           source test/basic-assertions.sh "${{ inputs.expected-user }}"
 
     - name: Run font installation assertions
