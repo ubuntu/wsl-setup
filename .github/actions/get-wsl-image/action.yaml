@@ -6,7 +6,7 @@ inputs:
   base_url:
     description: "The base URL to download the WSL image from"
     required: false
-    default: "https://cdimages.ubuntu.com/ubuntu-wsl/daily-live/current/"
+    default: "https://cdimages.ubuntu.com/ubuntu-wsl/stonking/daily-live/current/"
   arch:
     description: "The architecture of the WSL image to download (amd64 or arm64)"
     required: false
