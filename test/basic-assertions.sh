@@ -35,7 +35,8 @@ fi
 # Without systemd and cloud-init the default locale would be C.UTF-8 so the expectations still hold.
 expected="C.UTF-8"
 systemd_running="OFF"
-if systemctl is-system-running --quiet; then
+is_running=$(LANG=C systemctl is-system-running)
+if [[ "$is_running" == "running" || "$is_running" == "degraded" ]]; then
 	expected="pt_BR.UTF-8"
 	systemd_running="ON"
 fi
