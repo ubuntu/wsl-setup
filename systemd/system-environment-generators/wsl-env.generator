@@ -1,0 +1,12 @@
+#!/bin/sh
+# Reads and exports some environment variables from PID 2 to the systemd environment. Useful
+# meanwhile we don't get a favorable resolution for https://github.com/microsoft/WSL/issues/41498.
+# - WSL2_DISTRO_NAME = the instance name
+# - WSL2_USER_PROFILE = The Windows absolute path of the user profile directory (e.g. C:\Users\username)
+if [ -r /proc/2/environ ]; then
+    tr '\0' '\n' < /proc/2/environ | sed -n '
+        /^WSL2_DISTRO_NAME=/p
+        /^WSL2_USER_PROFILE=/ { s/\\/\//g; p }
+        /^WSL2_INSTALL_PATH=/ { s/\\/\//g; p }
+    '
+fi
