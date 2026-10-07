@@ -42,3 +42,7 @@ if ! grep -q "^WSL2_USER_PROFILE=" <<< "${systemd_env}"; then
 	echo "::error:: WSL2_USER_PROFILE should be set in the systemd environment"
 	exit 6
 fi
+if ! grep -q "^WSL2_INSTALL_PATH=" <<< "${systemd_env}"; then
+	echo "::error:: WSL2_USER_PROFILE should be set in the systemd environment"
+	exit 7
+fi

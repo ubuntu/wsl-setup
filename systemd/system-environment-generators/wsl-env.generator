@@ -7,5 +7,6 @@ if [ -r /proc/2/environ ]; then
     tr '\0' '\n' < /proc/2/environ | sed -n '
         /^WSL2_DISTRO_NAME=/p
         /^WSL2_USER_PROFILE=/ { s/\\/\//g; p }
+        /^WSL2_INSTALL_PATH=/ { s/\\/\//g; p }
     '
 fi
