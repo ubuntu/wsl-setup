@@ -34,15 +34,10 @@ fi
 
 # Inspect the systemd environment for key variables that should be set in a WSL instance.
 systemd_env=$(systemctl show-environment)
-if ! grep -q "^WSL2_DISTRO_NAME=" <<< "${systemd_env}"; then
-	echo "::error:: WSL2_DISTRO_NAME should be set in the systemd environment"
-	exit 5
-fi
-if ! grep -q "^WSL2_USER_PROFILE=" <<< "${systemd_env}"; then
-	echo "::error:: WSL2_USER_PROFILE should be set in the systemd environment"
-	exit 6
-fi
-if ! grep -q "^WSL2_INSTALL_PATH=" <<< "${systemd_env}"; then
-	echo "::error:: WSL2_USER_PROFILE should be set in the systemd environment"
-	exit 7
-fi
+for var in WSL2_DISTRO_NAME WSL2_USER_PROFILE WSL2_INSTALL_PATH; do
+	if ! grep -q "^${var}=" <<< "${systemd_env}"; then
+		echo "::error:: ${var} should be set in the systemd environment"
+		exit 5
+	fi
+done
+
