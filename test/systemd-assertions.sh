@@ -31,3 +31,13 @@ if [[ ! -r "/etc/cloud/cloud-init.disabled" ]]; then
 	echo "::error:: Missing cloud-init.disabled marker file"
 	exit 4
 fi
+
+# Inspect the systemd environment for key variables that should be set in a WSL instance.
+systemd_env=$(systemctl show-environment)
+for var in WSL2_DISTRO_NAME WSL2_USER_PROFILE WSL2_INSTALL_PATH; do
+	if ! grep -q "^${var}=" <<< "${systemd_env}"; then
+		echo "::error:: ${var} should be set in the systemd environment"
+		exit 5
+	fi
+done
+
