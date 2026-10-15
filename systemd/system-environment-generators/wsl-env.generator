@@ -2,7 +2,14 @@
 # Reads and exports some environment variables from PID 2 to the systemd environment. Useful
 # meanwhile we don't get a favorable resolution for https://github.com/microsoft/WSL/issues/41498.
 # - WSL2_DISTRO_NAME = the instance name
-# - WSL2_USER_PROFILE = The Windows absolute path of the user profile directory (e.g. C:\Users\username)
+# - WSL2_USER_PROFILE = The Windows absolute path of the user profile directory with Unix style path separators (e.g. C:/Users/username)
+# - WSL2_INSTALL_PATH = The Windows absolute path of the WSL installation directory.
+# Relies on systemd quote-escaping the values to prevent unexpected behaviour at runtime.
+pid2exe="$(readlink -f /proc/2/exe)"
+if [ "${pid2exe}" != "/init" ]; then
+    echo "${0##*/}: expected PID 2 to be /init but it was ${pid2exe} instead." > /dev/kmsg
+    exit 1
+fi
 if [ -r /proc/2/environ ]; then
     tr '\0' '\n' < /proc/2/environ | sed -n '
         /^WSL2_DISTRO_NAME=/p
