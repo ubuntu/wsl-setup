@@ -96,7 +96,21 @@ function powershell_env() {
 # install_ubuntu_font copies the Ubuntu font into Windows filesystem and register it for the current Windows user.
 function install_ubuntu_font() {
 	local local_app_data
+
+	# Still try to get the LocalAppData path from PowerShell first, because users could
+	# theoretically change it to a non-standard location.
 	local_app_data=$(powershell_env "LocalAppData")
+	if [ -z "${local_app_data}" ]; then
+	  local env_line
+	  env_line=$(systemctl show-environment 2>/dev/null | grep -E '^WSL2_USER_PROFILE=') || true
+	  if [ -n "${env_line}" ]; then
+	    # shellcheck disable=SC1090 # Intentionally sourcing a variable from systemctl show-environment output.
+	    source <(printf '%s\n' "${env_line}")
+	    if [ -n "${WSL2_USER_PROFILE:-}" ]; then
+	      local_app_data="${WSL2_USER_PROFILE}/AppData/Local"
+	    fi
+	  fi
+	fi
 	if [ -z "${local_app_data}" ]; then
 		return
 	fi
@@ -104,7 +118,8 @@ function install_ubuntu_font() {
 	local_app_data=$(wslpath -au "${local_app_data}") 2>/dev/null || true
 	local fonts_dir="${local_app_data}/Microsoft/Windows/Fonts"
 	local font="UbuntuSansMono[wght].ttf"
-	mkdir -p "${fonts_dir}" 2>/dev/null
+	# We don't want to fail the provisioning if we can't create the directory.
+	mkdir -p "${fonts_dir}" 2>/dev/null || return 0
 	if [ -f "${fonts_dir}/${font}" ]; then
 		return
 	fi
