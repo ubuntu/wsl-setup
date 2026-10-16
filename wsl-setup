@@ -84,8 +84,10 @@ function powershell_env() {
 	local ret
 	# shellcheck disable=SC2016 # Intentional due to how we use powershell
 	ret=$(powershell.exe -NoProfile -Command '& {
+			try {
                             [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-                            $Env:'"${var}"'}') 2>/dev/null || true
+                            $Env:'"${var}"'
+			} catch {} }') 2>/dev/null || true
 	# strip control chars like \r and \n
 	ret="${ret%%[[:cntrl:]]}"
 	echo "$ret"
