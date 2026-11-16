@@ -1,3 +1,10 @@
+wsl-setup (0.6.5ubuntu) tenacious; urgency=medium
+
+  * Prevents PowerShell exceptions from breaking the setup script (LP: #2174602)
+  * Propagates interesting environment variables to the systemd environmnet.
+
+ -- Carlos Nihelton <cnihelton@ubuntu.com>  Mon, 16 Nov 2026 10:42:49 -0300
+
 wsl-setup (0.6.4ubuntu) stonking; urgency=medium
 
   [ Kat Kuo ]
