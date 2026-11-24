@@ -55,16 +55,15 @@ function apply_consent() {
 
 function read_consent_registry() {
 	local consent_value=""
-	consent_value=$(powershell.exe -NoProfile -Command "& {
+	consent_value=$(powershell.exe -NoProfile -NonInteractive -Command "& {
         param(\$Path, \$Name)
-        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+	\$WarningPreference = 'SilentlyContinue'
         try {  
+	    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
             return (Get-ItemProperty -Path \$Path -Name \$Name -ErrorAction Stop).\$Name
         }
-        catch {
-            return \"\"
-        }
-    }" -Path "${registry_key_path}" -Name "${registry_value_name}" 2>/dev/null) || true
+        catch {}
+	}" -Path "${registry_key_path}" -Name "${registry_value_name}" 2>/dev/null) || true
 	# strip control chars like \r and \n
 	echo "${consent_value//[[:cntrl:]]/}"
 }
