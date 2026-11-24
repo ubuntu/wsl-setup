@@ -68,6 +68,52 @@ PSEOF
 )
 assert_powershell_env "value is returned unchanged" "${working}" 'C:\Users\Test'
 
+# --- Real PowerShell engine -------------------------------------------------
+# The bash stub above never parses the PowerShell payload, so on its own it
+# cannot catch a malformed -Command (e.g. unbalanced braces) or the Constrained
+# Language Mode path. When a real engine is present -- pwsh ships on the Linux
+# CI runners -- drive the real payload through it. Skipped when pwsh is absent.
+if command -v pwsh >/dev/null 2>&1; then
+	# engine_shim <name>: a powershell.exe that hands the -Command payload to
+	# pwsh, preceded by $POWERSHELL_ENV_PREAMBLE when that is set (used to force
+	# Constrained Language Mode).
+	engine_shim() {
+		local dir="${workdir}/$1"
+		mkdir -p "$dir"
+		cat >"${dir}/powershell.exe" <<'SHIM'
+#!/bin/bash
+preamble="${POWERSHELL_ENV_PREAMBLE:-}"
+prev=""
+for arg in "$@"; do
+	if [ "${prev}" = "-Command" ]; then
+		exec pwsh -NoProfile -NonInteractive -Command "${preamble}${arg}"
+	fi
+	prev="${arg}"
+done
+echo "powershell.exe shim: no -Command argument" >&2
+exit 1
+SHIM
+		chmod +x "${dir}/powershell.exe"
+		printf '%s' "$dir"
+	}
+
+	engine=$(engine_shim engine)
+
+	# The real engine must parse the payload and hand the value back unchanged.
+	export SomeVar='C:\Users\Test Value'
+	unset POWERSHELL_ENV_PREAMBLE
+	assert_powershell_env "real engine returns the value" "${engine}" 'C:\Users\Test Value'
+
+	# Under Constrained Language Mode the console-encoding assignment is
+	# rejected; the payload's try/catch must fail closed (no value, no stderr).
+	# shellcheck disable=SC2016 # Intentional: the value is a PowerShell fragment, not shell
+	export POWERSHELL_ENV_PREAMBLE='$ExecutionContext.SessionState.LanguageMode = "ConstrainedLanguage"; '
+	assert_powershell_env "Constrained Language Mode fails closed" "${engine}" ""
+	unset POWERSHELL_ENV_PREAMBLE
+else
+	echo "SKIP: pwsh not installed; real-engine checks not run"
+fi
+
 if [ "${failures}" -ne 0 ]; then
 	echo "${failures} assertion(s) failed"
 	exit 1
