@@ -25,3 +25,6 @@ jobs:
               $(for f in $EXTENSIONLESS_SCRIPTS; do echo -o -name "$f"; done) \) \
               -type f
           )
+
+      - name: Shell tests
+        run: bash test/powershell-env-test.sh ./wsl-setup
