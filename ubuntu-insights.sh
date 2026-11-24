@@ -58,8 +58,7 @@ function read_consent_registry() {
 	consent_value=$(powershell.exe -NoProfile -NonInteractive -Command "& {
         param(\$Path, \$Name)
 	\$WarningPreference = 'SilentlyContinue'
-        try {  
-	    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        try {
             return (Get-ItemProperty -Path \$Path -Name \$Name -ErrorAction Stop).\$Name
         }
         catch {}
