@@ -1,4 +1,4 @@
-name: ShellCheck QA
+name: Shell Scripts QA
 
 on:
   push:
@@ -7,11 +7,11 @@ on:
 permissions: {}
 
 env:
-  EXTENSIONLESS_SCRIPTS: "wsl-setup wait-for-cloud-init ubuntu-insights"
+  EXTENSIONLESS_SCRIPTS: 'wsl-setup wait-for-cloud-init ubuntu-insights'
 
 jobs:
-  shellcheck:
-    name: Run ShellCheck
+  shell-scripts-qa:
+    name: Run Shell Scripts QA
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
@@ -26,5 +26,5 @@ jobs:
               -type f
           )
 
-      - name: Shell tests
+      - name: Run unit tests
         run: bash test/powershell-env-test.sh ./wsl-setup
