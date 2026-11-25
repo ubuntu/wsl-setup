@@ -85,10 +85,10 @@ function powershell_env() {
 	# shellcheck disable=SC2016 # Intentional due to how we use powershell
 	ret=$(powershell.exe -NoProfile -NonInteractive -Command '& {
 		$WarningPreference = "SilentlyContinue"
-		try {
-                    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-                    $Env:'"${var}"'
-		} catch {} }' 2>/dev/null) || true
+		$v = $Env:'"${var}"'
+		try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; return $v } catch {}
+		if ($v -match "^[\x00-\x7F]*$") { return $v }
+	}' 2>/dev/null) || true
 	# strip control chars like \r and \n
 	ret="${ret%%[[:cntrl:]]}"
 	echo "$ret"

@@ -104,11 +104,16 @@ SHIM
 	unset POWERSHELL_ENV_PREAMBLE
 	assert_powershell_env "real engine returns the value" "${engine}" 'C:\Users\Test Value'
 
-	# Under Constrained Language Mode the console-encoding assignment is
-	# rejected; the payload's try/catch must fail closed (no value, no stderr).
 	# shellcheck disable=SC2016 # Intentional: the value is a PowerShell fragment, not shell
 	export POWERSHELL_ENV_PREAMBLE='$ExecutionContext.SessionState.LanguageMode = "ConstrainedLanguage"; '
-	assert_powershell_env "Constrained Language Mode fails closed" "${engine}" ""
+
+	# An ASCII value needs no encoding conversion, so it still comes back.
+	assert_powershell_env "ASCII value survives Constrained Language Mode" "${engine}" 'C:\Users\Test Value'
+
+	# A non-ASCII value cannot be converted under CLM, so it must fail closed.
+	SomeVar=$(printf 'Jos\xc3\xa9')
+	export SomeVar
+	assert_powershell_env "non-ASCII value fails closed under CLM" "${engine}" ""
 	unset POWERSHELL_ENV_PREAMBLE
 else
 	echo "SKIP: pwsh not installed; real-engine checks not run"
