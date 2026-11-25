@@ -87,7 +87,7 @@ function powershell_env() {
 		$WarningPreference = "SilentlyContinue"
 		$v = $Env:'"${var}"'
 		try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; return $v } catch {}
-		if ($v -match "^[\x00-\x7F]*$") { return $v }
+		if ($v -cmatch "^[\x00-\x7F]*$") { return $v }
 	}' 2>/dev/null) || true
 	# strip control chars like \r and \n
 	ret="${ret%%[[:cntrl:]]}"
