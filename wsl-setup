@@ -116,10 +116,10 @@ function install_ubuntu_font() {
 	local dst
 	dst=$(wslpath -aw "${fonts_dir}/${font}") 2>/dev/null || true
 	# shellcheck disable=SC2016 # Intentional due to how we use powershell
-	powershell.exe -NoProfile -Command '& {
+	powershell.exe -NoProfile -NonInteractive -Command '& {
               $null = New-Item -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion" -Name "Fonts" 2>$null;
               $null = New-ItemProperty -Name "Ubuntu Sans Mono (TrueType)" -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts" -PropertyType string -Value "'"${dst}"'" 2>$null;
-  }' >/dev/null || true
+  }' &>/dev/null || true
 }
 
 function main() {
