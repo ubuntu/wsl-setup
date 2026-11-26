@@ -83,9 +83,12 @@ function powershell_env() {
 
 	local ret
 	# shellcheck disable=SC2016 # Intentional due to how we use powershell
-	ret=$(powershell.exe -NoProfile -Command '& {
-                            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-                            $Env:'"${var}"'}') 2>/dev/null || true
+	ret=$(powershell.exe -NoProfile -NonInteractive -Command '& {
+		$WarningPreference = "SilentlyContinue"
+		$v = $Env:'"${var}"'
+		try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; return $v } catch {}
+		if ($v -cmatch "^[\x00-\x7F]*$") { return $v }
+	}' 2>/dev/null) || true
 	# strip control chars like \r and \n
 	ret="${ret%%[[:cntrl:]]}"
 	echo "$ret"
@@ -113,44 +116,51 @@ function install_ubuntu_font() {
 	local dst
 	dst=$(wslpath -aw "${fonts_dir}/${font}") 2>/dev/null || true
 	# shellcheck disable=SC2016 # Intentional due to how we use powershell
-	powershell.exe -NoProfile -Command '& {
+	powershell.exe -NoProfile -NonInteractive -Command '& {
               $null = New-Item -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion" -Name "Fonts" 2>$null;
               $null = New-ItemProperty -Name "Ubuntu Sans Mono (TrueType)" -Path "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts" -PropertyType string -Value "'"${dst}"'" 2>$null;
-  }' >/dev/null || true
+  }' &>/dev/null || true
 }
 
-echo "Provisioning the new WSL instance $WSL_DISTRO_NAME"
-echo "This might take a while..."
+function main() {
+	echo "Provisioning the new WSL instance $WSL_DISTRO_NAME"
+	echo "This might take a while..."
 
-# Read the Windows user name.
-win_username=$(powershell_env "UserName.ToLower()")
-# replace any potential whitespaces with underscores.
-win_username="${win_username// /_}"
+	# Read the Windows user name.
+	win_username=$(powershell_env "UserName.ToLower()")
+	# replace any potential whitespaces with underscores.
+	win_username="${win_username// /_}"
 
-install_ubuntu_font
+	install_ubuntu_font
 
-# Wait for cloud-init to finish if systemd and its service is enabled
-# by running the script located at the same dir as this one.
-this_dir=$(dirname "$(realpath "$0")")
-source "${this_dir}/wait-for-cloud-init"
+	# Wait for cloud-init to finish if systemd and its service is enabled
+	# by running the script located at the same dir as this one.
+	this_dir=$(dirname "$(realpath "$0")")
+	source "${this_dir}/wait-for-cloud-init"
 
-# Check if there is a pre-provisioned users (pre-baked on the rootfs or created by cloud-init).
-user_id=$(get_first_interactive_uid)
-
-# If we don’t have a non system user, let’s create it.
-if [ -z "${user_id}" ]; then
-	create_regular_user "${win_username}"
-
+	# Check if there is a pre-provisioned users (pre-baked on the rootfs or created by cloud-init).
 	user_id=$(get_first_interactive_uid)
+
+	# If we don’t have a non system user, let’s create it.
 	if [ -z "${user_id}" ]; then
-		echo 'Failed to create a regular user account'
-		exit 1
+		create_regular_user "${win_username}"
+
+		user_id=$(get_first_interactive_uid)
+		if [ -z "${user_id}" ]; then
+			echo 'Failed to create a regular user account'
+			exit 1
+		fi
 	fi
+
+	# Set the newly created user as the WSL default.
+	username=$(id -un "${user_id}")
+	set_user_as_default "${username}"
+
+	# Start Ubuntu Insights consent script
+	"${this_dir}/ubuntu-insights.sh"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
 fi
 
-# Set the newly created user as the WSL default.
-username=$(id -un "${user_id}")
-set_user_as_default "${username}"
-
-# Start Ubuntu Insights consent script
-"${this_dir}/ubuntu-insights.sh"
